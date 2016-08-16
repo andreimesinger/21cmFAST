@@ -1,0 +1,47 @@
+**************  To Install **********************
+1) You must have fftw installed (with the float compilation)
+before compiling these files.  Download and unpack fftw:
+http://www.fftw.org/download.html
+
+then install:
+
+   `./configure --enable-float  --enable-openmp`
+   `make`
+   `sudo make install`
+
+   or if you are installing on a shared machine and/or don't have root priviledges:
+
+   `./configure --enable-float  --enable-openmp --prefix=NAME_OF_LOCAL_DIRECTORY`
+   `make`
+   `make install`
+
+   (note in this case, you have to add the include/ and lib/ directories to the 
+   compiler path with the -I compiler flag in the makefile)
+
+2) Install (if not already installed) the gnu scientific library (GSL).
+   http://www.gnu.org/software/gsl/
+
+3) cd to the `Programs` directory and set the desired compiler flag 
+   in the makefile, as well as the paths, if the above installations
+   went to non-standard directories.
+
+4) Type `make` to compile code
+
+
+**************  To Run **********************
+Set your desired simulation and cosmology parameters in the .H files in the 
+`Parameter_files` directory.
+
+Then you can run the analysis programs either
+individually or through the driver programs
+(see PROGRAM_LIST in `Programs`)
+
+NOTE: you only need to run 'init' once for each realization,
+so comment out the command in the driver files, if using
+them again on the same realization.
+
+**************  NOTES  ***************************
+THE MEMORY USE OF THE FULL CODE IS APPROXIMATELY
+((DIM^3 + 4*HII_DIM^3) * 4 ) / 1E9  GB
+MAKE SURE YOU HAVE ENOUGH RAM!
+The default settings use ~2.2GB

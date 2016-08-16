@@ -1,0 +1,259 @@
+Reading in deltax box
+begin initial ffts, clock=001.34
+end initial ffts, clock=001.71
+before memcpy, clock=001.99
+begin filter, clock=002.03
+end filter, clock=002.23
+begin fft with R=20.000000, clock=002.23
+end fft with R=20.000000, clock=002.55
+begin f_coll normalization if, clock=002.55
+end f_coll normalization if, clock=004.27
+start of main lopp scroll, clock=004.27
+before memcpy, clock=004.42
+begin filter, clock=004.42
+end filter, clock=004.63
+begin fft with R=18.181818, clock=004.63
+end fft with R=18.181818, clock=005.00
+begin f_coll normalization if, clock=005.00
+end f_coll normalization if, clock=006.68
+start of main lopp scroll, clock=006.68
+before memcpy, clock=006.84
+begin filter, clock=006.84
+end filter, clock=007.05
+begin fft with R=16.528925, clock=007.05
+end fft with R=16.528925, clock=007.37
+begin f_coll normalization if, clock=007.37
+end f_coll normalization if, clock=009.00
+start of main lopp scroll, clock=009.00
+before memcpy, clock=009.13
+begin filter, clock=009.14
+end filter, clock=009.35
+begin fft with R=15.026295, clock=009.35
+end fft with R=15.026295, clock=009.66
+begin f_coll normalization if, clock=009.66
+end f_coll normalization if, clock=011.28
+start of main lopp scroll, clock=011.28
+before memcpy, clock=011.42
+begin filter, clock=011.43
+end filter, clock=011.63
+begin fft with R=13.660268, clock=011.63
+end fft with R=13.660268, clock=011.98
+begin f_coll normalization if, clock=011.98
+end f_coll normalization if, clock=013.64
+start of main lopp scroll, clock=013.64
+before memcpy, clock=013.79
+begin filter, clock=013.79
+end filter, clock=014.00
+begin fft with R=12.418425, clock=014.00
+end fft with R=12.418425, clock=014.36
+begin f_coll normalization if, clock=014.36
+end f_coll normalization if, clock=015.99
+start of main lopp scroll, clock=015.99
+before memcpy, clock=016.14
+begin filter, clock=016.15
+end filter, clock=016.35
+begin fft with R=11.289476, clock=016.35
+end fft with R=11.289476, clock=016.67
+begin f_coll normalization if, clock=016.67
+end f_coll normalization if, clock=018.27
+start of main lopp scroll, clock=018.27
+before memcpy, clock=018.41
+begin filter, clock=018.42
+end filter, clock=018.63
+begin fft with R=10.263160, clock=018.63
+end fft with R=10.263160, clock=018.95
+begin f_coll normalization if, clock=018.95
+end f_coll normalization if, clock=020.60
+start of main lopp scroll, clock=020.60
+before memcpy, clock=020.75
+begin filter, clock=020.76
+end filter, clock=020.96
+begin fft with R=9.330145, clock=020.96
+end fft with R=9.330145, clock=021.30
+begin f_coll normalization if, clock=021.30
+end f_coll normalization if, clock=022.92
+start of main lopp scroll, clock=022.92
+before memcpy, clock=023.07
+begin filter, clock=023.07
+end filter, clock=023.28
+begin fft with R=8.481950, clock=023.28
+end fft with R=8.481950, clock=023.64
+begin f_coll normalization if, clock=023.64
+end f_coll normalization if, clock=025.27
+start of main lopp scroll, clock=025.27
+before memcpy, clock=025.42
+begin filter, clock=025.43
+end filter, clock=025.63
+begin fft with R=7.710863, clock=025.63
+end fft with R=7.710863, clock=025.95
+begin f_coll normalization if, clock=025.95
+end f_coll normalization if, clock=027.58
+start of main lopp scroll, clock=027.58
+before memcpy, clock=027.72
+begin filter, clock=027.72
+end filter, clock=027.93
+begin fft with R=7.009875, clock=027.93
+end fft with R=7.009875, clock=028.24
+begin f_coll normalization if, clock=028.24
+end f_coll normalization if, clock=029.85
+start of main lopp scroll, clock=029.85
+before memcpy, clock=029.99
+begin filter, clock=030.00
+end filter, clock=030.21
+begin fft with R=6.372614, clock=030.21
+end fft with R=6.372614, clock=030.55
+begin f_coll normalization if, clock=030.55
+end f_coll normalization if, clock=032.18
+start of main lopp scroll, clock=032.18
+before memcpy, clock=032.32
+begin filter, clock=032.33
+end filter, clock=032.54
+begin fft with R=5.793285, clock=032.54
+end fft with R=5.793285, clock=032.86
+begin f_coll normalization if, clock=032.86
+end f_coll normalization if, clock=034.49
+start of main lopp scroll, clock=034.49
+before memcpy, clock=034.63
+begin filter, clock=034.64
+end filter, clock=034.85
+begin fft with R=5.266623, clock=034.85
+end fft with R=5.266623, clock=035.17
+begin f_coll normalization if, clock=035.18
+end f_coll normalization if, clock=036.84
+start of main lopp scroll, clock=036.84
+before memcpy, clock=036.99
+begin filter, clock=036.99
+end filter, clock=037.20
+begin fft with R=4.787839, clock=037.20
+end fft with R=4.787839, clock=037.54
+begin f_coll normalization if, clock=037.54
+end f_coll normalization if, clock=039.19
+start of main lopp scroll, clock=039.19
+before memcpy, clock=039.34
+begin filter, clock=039.34
+end filter, clock=039.55
+begin fft with R=4.352581, clock=039.55
+end fft with R=4.352581, clock=039.90
+begin f_coll normalization if, clock=039.90
+end f_coll normalization if, clock=041.59
+start of main lopp scroll, clock=041.59
+before memcpy, clock=041.73
+begin filter, clock=041.74
+end filter, clock=041.94
+begin fft with R=3.956891, clock=041.94
+end fft with R=3.956891, clock=042.27
+begin f_coll normalization if, clock=042.27
+end f_coll normalization if, clock=043.88
+start of main lopp scroll, clock=043.88
+before memcpy, clock=044.02
+begin filter, clock=044.03
+end filter, clock=044.24
+begin fft with R=3.597174, clock=044.24
+end fft with R=3.597174, clock=044.56
+begin f_coll normalization if, clock=044.56
+end f_coll normalization if, clock=046.16
+start of main lopp scroll, clock=046.16
+before memcpy, clock=046.31
+begin filter, clock=046.32
+end filter, clock=046.53
+begin fft with R=3.270158, clock=046.53
+end fft with R=3.270158, clock=046.86
+begin f_coll normalization if, clock=046.86
+end f_coll normalization if, clock=048.46
+start of main lopp scroll, clock=048.46
+before memcpy, clock=048.62
+begin filter, clock=048.62
+end filter, clock=048.83
+begin fft with R=2.972871, clock=048.83
+end fft with R=2.972871, clock=049.15
+begin f_coll normalization if, clock=049.15
+end f_coll normalization if, clock=050.81
+start of main lopp scroll, clock=050.81
+before memcpy, clock=050.96
+begin filter, clock=050.97
+end filter, clock=051.18
+begin fft with R=2.702610, clock=051.18
+end fft with R=2.702610, clock=051.53
+begin f_coll normalization if, clock=051.53
+end f_coll normalization if, clock=053.15
+start of main lopp scroll, clock=053.15
+before memcpy, clock=053.31
+begin filter, clock=053.31
+end filter, clock=053.52
+begin fft with R=2.456918, clock=053.52
+end fft with R=2.456918, clock=053.85
+begin f_coll normalization if, clock=053.85
+end f_coll normalization if, clock=055.45
+start of main lopp scroll, clock=055.45
+before memcpy, clock=055.60
+begin filter, clock=055.60
+end filter, clock=055.81
+begin fft with R=2.233562, clock=055.81
+end fft with R=2.233562, clock=056.14
+begin f_coll normalization if, clock=056.14
+end f_coll normalization if, clock=057.74
+start of main lopp scroll, clock=057.74
+before memcpy, clock=057.89
+begin filter, clock=057.90
+end filter, clock=058.10
+begin fft with R=2.030511, clock=058.10
+end fft with R=2.030511, clock=058.44
+begin f_coll normalization if, clock=058.44
+end f_coll normalization if, clock=060.05
+start of main lopp scroll, clock=060.05
+before memcpy, clock=060.21
+begin filter, clock=060.21
+end filter, clock=060.42
+begin fft with R=1.845919, clock=060.42
+end fft with R=1.845919, clock=060.74
+begin f_coll normalization if, clock=060.74
+end f_coll normalization if, clock=062.37
+start of main lopp scroll, clock=062.37
+before memcpy, clock=062.52
+begin filter, clock=062.53
+end filter, clock=062.73
+begin fft with R=1.678108, clock=062.73
+end fft with R=1.678108, clock=063.07
+begin f_coll normalization if, clock=063.07
+end f_coll normalization if, clock=064.72
+start of main lopp scroll, clock=064.72
+before memcpy, clock=064.88
+begin filter, clock=064.89
+end filter, clock=065.09
+begin fft with R=1.525553, clock=065.09
+end fft with R=1.525553, clock=065.42
+begin f_coll normalization if, clock=065.42
+end f_coll normalization if, clock=067.09
+start of main lopp scroll, clock=067.09
+before memcpy, clock=067.25
+begin filter, clock=067.25
+end filter, clock=067.46
+begin fft with R=1.386866, clock=067.46
+end fft with R=1.386866, clock=067.78
+begin f_coll normalization if, clock=067.78
+end f_coll normalization if, clock=069.45
+start of main lopp scroll, clock=069.45
+before memcpy, clock=069.61
+begin filter, clock=069.62
+end filter, clock=069.82
+begin fft with R=1.260787, clock=069.82
+end fft with R=1.260787, clock=070.15
+begin f_coll normalization if, clock=070.15
+end f_coll normalization if, clock=071.76
+start of main lopp scroll, clock=071.76
+before memcpy, clock=071.92
+begin filter, clock=071.93
+end filter, clock=072.13
+begin fft with R=1.146170, clock=072.13
+end fft with R=1.146170, clock=072.46
+begin f_coll normalization if, clock=072.46
+end f_coll normalization if, clock=074.07
+start of main lopp scroll, clock=074.07
+before memcpy, clock=074.22
+begin filter, clock=074.23
+end filter, clock=074.43
+begin fft with R=1.041973, clock=074.43
+end fft with R=1.041973, clock=074.75
+start of main lopp scroll, clock=077.44
+Neutral fraction is 0.738850
+Now writting xH box at ../Boxes/xH_nohalos_z008.00_nf0.738850_eff20.0_effPLindex0.0_HIIfilter1_Mmin1.2e+09_RHIImax20_256_300Mpc

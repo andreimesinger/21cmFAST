@@ -1,0 +1,9 @@
+*********  REDSHIFT 025.91  ***********
+Reading in xH box
+Reading in deltax box
+Without velocities, max is 5.202201e+00, min is -2.153841e+02, ave is -1.847306e+00
+With velocities:
+Max is 6.256413e+00	 dvdx is -2.879169e-17, ave is -1.875545e+00
+5637 out of 2097152 voxels (fraction=2.687931e-03) exceeded max allowed velocity gradient
+Min is -2.692301e+02	 dvdx is -3.417392e-17
+

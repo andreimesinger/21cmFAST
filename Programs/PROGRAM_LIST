@@ -1,0 +1,36 @@
+This file briefly states the purposes of each program in this directory.
+For further explanation, see the header of the .c file.
+
+Driver program:
+----------------------
+drive_logZscroll_Ts   /*  scrolls logarithmically through redshifts creating halo, velocity, density, and ionization fields, 21cm fields, INCLUDES spin temperature */
+
+drive_zscroll_noTs   /*  scrolls through redshifts creating halo, velocity, density, and ionization fields, 21cm fields */
+
+drive_xHIscroll_noTs   /*  scrolls through ionizing efficiencies, at a fixed redshift, creating halo, velocity, density, and ionization fields, 21cm fields */
+
+drive_zscroll_reion_param  /* New in v1.1. Threaded driver scrolling through astrophysical parameter space */
+
+
+Programs to create various fields:
+-----------------------------------------------------------------
+perturb_field   /* creates a quasi-linear density field by perturbing the linear density field using 1st order Zel-Dovich approximation.  velocities from the resulting density field are re-calculated */
+
+find_HII_bubbles   /* generates ionization field */
+
+Ts.c  /* generates spin temperature fields */
+
+delta_T   /* generates the 21-cm temperature offset from the CMB field and power spectrum; eq. 16 in Mesinger & Furlanetto 2007 */
+
+
+Misc. programs:
+----------------------------------
+delta_ps  /* generates power spectra of lower resolution fields. useful for debugging and, for example, one can check if one is underresolving scales of interests in the density field (power will flatten or decrease toward small scales if you are) */
+
+filter_den_hist  /* generates histogram of the evolved density field, smoothed on a given scale, using the filter type defined in the .c file */
+
+gen_size_distr   /* generates size distributions of ionized or neutral regions */
+
+boxcar_smooth_field  /* smooths field from resolution DIM (INIT_PARAMS.H) to HII_DIM (ANAL_PARAMS.H), using a boxcar filter */
+
+redshift_interpolate_boxes /* program to generate lightcone (more accurately fixed conformal time) boxes, where the resulting box is linearly interpolated (in cosmic time) between two adjoining redshift output.  The resulting stacked boxes can be used to make, for example, fig. 1 in Mesinger, McQuinn, Spergel */

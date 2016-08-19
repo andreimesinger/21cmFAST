@@ -1,6 +1,6 @@
 # C compiler and flags
-CPPFLAGS = -I/usr/local/include
-LDFLAGS = -lgsl -lgslcblas -lfftw3f_omp -lfftw3f -lm
+CPPFLAGS = -I/usr/local/include -I/home/beards/lib/fftw-3.3.4/include
+LDFLAGS = -L/usr/local/lib -L/home/beards/lib/fftw-3.3.4/lib -lgsl -lgslcblas -lfftw3f_omp -lfftw3f -lm
 CC      = gcc -fopenmp
 #CC      = gcc -fopenmp -mtune=core2 -march=core2 -m64 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_THREAD_SAFE #for my mac pro 64bit
 

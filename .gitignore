@@ -1,0 +1,5 @@
+# To ignore compiled files, first ignore all of Programs dir
+Programs/*
+# Then unignore files with extensions and other specifics
+!Programs/*.c
+!Programs/Makefile

@@ -32,7 +32,7 @@ int compare_floats(const void *, const void *);
 float erfcc(float);
 
 /* open log file and immediately print useful info */
-FILE *log_open(const char *)
+FILE *log_open(const char *);
 
 /*********   END PROTOTYPE DEFINITIONS  ***********/
 
@@ -104,10 +104,10 @@ float erfcc(float x)
 FILE *log_open(const char *filename)
 {
   FILE *LOG;
-  char cmnd[1000]
+  char cmnd[1000];
 
-  sprintf(cmnd, "echo GIT commit = `git rev-parse HEAD` > %s", filename)
-  exec(cmnd);
+  sprintf(cmnd, "echo GIT commit = `git rev-parse HEAD` > %s", filename);
+  system(cmnd);
 
   LOG = fopen(filename, "w");
   if (!LOG){

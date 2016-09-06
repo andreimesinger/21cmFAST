@@ -106,10 +106,10 @@ FILE *log_open(const char *filename)
   FILE *LOG;
   char cmnd[1000];
 
-  sprintf(cmnd, "echo GIT commit = `git rev-parse HEAD` > %s", filename);
+  sprintf(cmnd, "echo git commit = `git rev-parse HEAD` > %s", filename);
   system(cmnd);
 
-  LOG = fopen(filename, "w");
+  LOG = fopen(filename, "a");
   if (!LOG){
     return LOG;
   }

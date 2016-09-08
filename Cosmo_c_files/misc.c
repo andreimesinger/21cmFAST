@@ -26,10 +26,13 @@ size_t mod_fwrite (const void *, unsigned long long, unsigned long long, FILE *)
 size_t mod_fread(void *, unsigned long long, unsigned long long, FILE *);
 
 /* generic function to compare floats */
-int compare_floats(const void *, const void *); 
+int compare_floats(const void *, const void *);
 
 /* fast complimentary error function approximation */
 float erfcc(float);
+
+/* open log file and immediately print useful info */
+FILE *log_open(const char *);
 
 /*********   END PROTOTYPE DEFINITIONS  ***********/
 
@@ -61,14 +64,14 @@ size_t mod_fread(void * array, unsigned long long size, unsigned long long count
   unsigned long long pos, tot_size, pos_ct;
   const unsigned long long block_size = 512*512*512*4;
 
-  tot_size = size*count; // total size of buffer to be written                                                         
+  tot_size = size*count; // total size of buffer to be written
   //check if the buffer is smaller than our pre-defined block size
   if (tot_size <= block_size)
     return fread(array, size, count, stream);
   else{
     pos = 0;
     pos_ct=0;
-    // buffer is large, so write out in increments of block_size        
+    // buffer is large, so write out in increments of block_size
     while ( (pos+block_size) < tot_size ){
       fread((char *)array + pos, block_size, 1, stream);
       pos_ct++;
@@ -82,7 +85,7 @@ int compare_floats (const void *a, const void *b)
      {
        const float *da = (const float *) a;
        const float *db = (const float *) b;
-     
+
        return (*da > *db) - (*da < *db);
      }
 
@@ -96,6 +99,24 @@ float erfcc(float x)
 		t*(-0.1862881+t*(0.2788681+t*(-1.13520398+t*(1.4885159+
 		t*(-0.82215223+t*0.17087277)))))))));
 	return x >= 0.0 ? ans : 2.0-ans;
+}
+
+FILE *log_open(const char *filename)
+{
+  FILE *LOG;
+  char cmnd[1000];
+
+  sprintf(cmnd, "echo git commit = `git rev-parse HEAD` > %s", filename);
+  system(cmnd);
+
+  LOG = fopen(filename, "a");
+  if (!LOG){
+    return LOG;
+  }
+
+  /* Do more stuff in the future */
+  
+  return LOG;
 }
 
 #endif

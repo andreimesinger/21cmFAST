@@ -9,7 +9,7 @@
 
 /*
   Program DRIVE_xHIscroll.C scrolls through various values of ionizing
-  efficiencies defined below, creating halo, evolved density, velocity, 
+  efficiencies defined below, creating halo, evolved density, velocity,
   21cm fields, for various values of the global ionized fraction, at a given
   redshift.
   NOTE: this driver assumes that the IGM has already been heated to Ts>>Tcmb.
@@ -17,7 +17,7 @@
 
   USAGE: drive_xHIscroll [FLAG]
   setting the optional argument FLAG to 1 bypasses the ionizing efficiency
-  parameters below, and instead tries to create fields at <xHI> = 0.1, 0.2, 
+  parameters below, and instead tries to create fields at <xHI> = 0.1, 0.2,
   0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9
 */
 
@@ -53,7 +53,7 @@ int main(int argc, char ** argv){
 
   // open log file
   system("rm ../Log_files/*");
-  LOG = fopen("../Log_files/drive_zscroll_noTs_log_file", "w");
+  LOG = log_open("../Log_files/drive_zscroll_noTs_log_file");
   if (!LOG){
     fprintf(stderr, "drive_zscroll_log_file.c: Unable to open log file\n Aborting...\n");
     return -1;
@@ -118,7 +118,7 @@ int main(int argc, char ** argv){
     fflush(NULL);
     system(cmnd);
 
-    
+
     // generate size distributions, first ionized bubbles
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
@@ -161,7 +161,7 @@ int main(int argc, char ** argv){
     system(cmnd);
 
 
-    // do temperature map		
+    // do temperature map
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
       if (USE_HALO_FIELD)

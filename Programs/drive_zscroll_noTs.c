@@ -43,7 +43,7 @@ int main(int argc, char ** argv){
 
   // open log file
   system("rm ../Log_files/*");
-  LOG = fopen("../Log_files/drive_zscroll_noTs_log_file", "w");
+  LOG = log_open("../Log_files/drive_zscroll_noTs_log_file", "w");
   if (!LOG){
     fprintf(stderr, "drive_zscroll_log_file.c: Unable to open log file\n Aborting...\n");
     return -1;
@@ -118,7 +118,7 @@ int main(int argc, char ** argv){
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
     fflush(NULL);
     system(cmnd);
-  
+
 
     // generate size distributions, then neutral regions
     switch(FIND_BUBBLE_ALGORITHM){

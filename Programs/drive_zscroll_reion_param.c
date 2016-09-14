@@ -79,7 +79,8 @@ int main(int argc, char ** argv){
   system(cmnd);
 
   // open log file
-  LOG = fopen("../Log_files/drive_zscroll_reion_param_log_file", "w");
+  // LOG = fopen("../Log_files/drive_zscroll_reion_param_log_file", "w");
+  LOG = log_open("../Log_files/drive_zscroll_reion_param_log_file");
   if (!LOG){
     fprintf(stderr, "drive_zscroll_log_file.c: Unable to open log file\n Aborting...\n");
     return -1;
@@ -92,7 +93,7 @@ int main(int argc, char ** argv){
     fprintf(stderr, "drive_zscroll_reion_param: WARNING: Your run will roughly use %.2fGB of RAM, and you claim to have %.2fGB.\n If this crashes, try lowering the resolution\n", TOT_RAM, RAM);
     fprintf(LOG, "drive_zscroll_reion_param: WARNING: Your run will roughly use %.2fGB of RAM, and you claim to have %.2fGB.\n If this crashes, try lowering the resolution\n", TOT_RAM, RAM);
   }
-  
+
   fprintf(stderr, "Calling init to set up the initial conditions\n");
   fprintf(LOG, "Calling init to set up the initial conditions\n");
   system("init"); // you only need this call once per realization
@@ -136,10 +137,10 @@ int main(int argc, char ** argv){
 
   /**** We now have the PT density and velocity fields.  Let's create the redshift interpolated boxes for them.  ****/
   // create the lists of filenames
-  sprintf(cmnd, "ls ../Boxes/updated_smoothed_deltax_*%i_%.0fMpc > ../Redshift_interpolate_filelists/delta_%i_%.0fMpc", 
+  sprintf(cmnd, "ls ../Boxes/updated_smoothed_deltax_*%i_%.0fMpc > ../Redshift_interpolate_filelists/delta_%i_%.0fMpc",
 	  HII_DIM, BOX_LEN, HII_DIM, BOX_LEN);
   system(cmnd);
-  sprintf(cmnd, "ls ../Boxes/updated_vz_*%i_%.0fMpc > ../Redshift_interpolate_filelists/v_%i_%.0fMpc", 
+  sprintf(cmnd, "ls ../Boxes/updated_vz_*%i_%.0fMpc > ../Redshift_interpolate_filelists/v_%i_%.0fMpc",
 	  HII_DIM, BOX_LEN, HII_DIM, BOX_LEN);
   system(cmnd);
 
@@ -149,7 +150,7 @@ int main(int argc, char ** argv){
   fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
   fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
   fflush(NULL);
-  sprintf(cmnd, "ls ../Boxes/updated_smoothed_deltax_*%i_%.0fMpc_lighttravel > ../Lighttravel_filelists/delta_%i_%.0fMpc", 
+  sprintf(cmnd, "ls ../Boxes/updated_smoothed_deltax_*%i_%.0fMpc_lighttravel > ../Lighttravel_filelists/delta_%i_%.0fMpc",
 	  HII_DIM, BOX_LEN, HII_DIM, BOX_LEN);
   system(cmnd);
 
@@ -159,7 +160,7 @@ int main(int argc, char ** argv){
   fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
   fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
   fflush(NULL);
-  sprintf(cmnd, "ls ../Boxes/updated_v*%i_%.0fMpc_lighttravel > ../Lighttravel_filelists/v_%i_%.0fMpc", 
+  sprintf(cmnd, "ls ../Boxes/updated_v*%i_%.0fMpc_lighttravel > ../Lighttravel_filelists/v_%i_%.0fMpc",
 	  HII_DIM, BOX_LEN, HII_DIM, BOX_LEN);
   system(cmnd);
 
@@ -180,7 +181,7 @@ int main(int argc, char ** argv){
 
       TVIR = Tvir_START;
       while (TVIR < Tvir_STOP){
-	
+
 
 	// inner redhift loop
 	Z = ZSTART;
@@ -206,14 +207,14 @@ int main(int argc, char ** argv){
 		// check for WDM
 		if (P_CUTOFF && ( M_MIN < M_J_WDM()))
 		  M_MIN = M_J_WDM();
-		  
+
 		// find bubbles
 		sprintf(cmnd, "find_HII_bubbles -p %i %f %f %e %f", proc_per_th, Z,  ZETA, TVIR, MFP);
 
 		printf("Thread %i now calling: %s\n", th_index, cmnd);
 		system(cmnd);
 
-		// do temperature map		
+		// do temperature map
 		switch(FIND_BUBBLE_ALGORITHM){
 		case 2:
 		  if (USE_HALO_FIELD)
@@ -229,7 +230,7 @@ int main(int argc, char ** argv){
 		}
 		fprintf(stderr, "Thread %i now calling: %s\n", th_index, cmnd);
 		system(cmnd);
-		
+
 		_exit(0);
 		break;
 
@@ -249,7 +250,7 @@ int main(int argc, char ** argv){
 	tot_z = i;
 
 	/****************  Now let's create the redshift interpolated boxes for the xHI fields ****************/
-	sprintf(cmnd, "ls ../Boxes/xH_*%i_%.0fMpc > ../Redshift_interpolate_filelists/xH_%i_%.0fMpc", 
+	sprintf(cmnd, "ls ../Boxes/xH_*%i_%.0fMpc > ../Redshift_interpolate_filelists/xH_%i_%.0fMpc",
 		HII_DIM, BOX_LEN, HII_DIM, BOX_LEN);
 	system(cmnd);
 	sprintf(cmnd, "redshift_interpolate_boxes 0 ../Redshift_interpolate_filelists/xH_%i_%.0fMpc", HII_DIM, BOX_LEN);
@@ -257,12 +258,12 @@ int main(int argc, char ** argv){
 	fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
 	fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
 	fflush(NULL);
-	sprintf(cmnd, "ls ../Boxes/xH*%i_%.0fMpc_lighttravel > ../Lighttravel_filelists/xH_%i_%.0fMpc", 
+	sprintf(cmnd, "ls ../Boxes/xH*%i_%.0fMpc_lighttravel > ../Lighttravel_filelists/xH_%i_%.0fMpc",
 		HII_DIM, BOX_LEN, HII_DIM, BOX_LEN);
 	system(cmnd);
 
 	/*******  and redshift interpolate the 21cm boxes if u want... ******************/
-	sprintf(cmnd, "ls ../Boxes/delta_T_*%i_%.0fMpc > ../Redshift_interpolate_filelists/delta_T_%i_%.0fMpc", 
+	sprintf(cmnd, "ls ../Boxes/delta_T_*%i_%.0fMpc > ../Redshift_interpolate_filelists/delta_T_%i_%.0fMpc",
 		HII_DIM, BOX_LEN, HII_DIM, BOX_LEN);
 	system(cmnd);
 	sprintf(cmnd, "redshift_interpolate_boxes 0 ../Redshift_interpolate_filelists/delta_T_%i_%.0fMpc", HII_DIM, BOX_LEN);
@@ -273,7 +274,7 @@ int main(int argc, char ** argv){
 
 
 	/***************** Get the secondary parameters ********************************************************/
-	
+
 	// first lets get a list of the xH files we just created
 	sprintf(cmnd, "../Redshift_interpolate_filelists/xH_%i_%.0fMpc", HII_DIM, BOX_LEN);
 	if (!(F=fopen(cmnd, "r"))){
@@ -334,7 +335,7 @@ int main(int argc, char ** argv){
 	}
 
 	// and the associated directory filename
-	sprintf(dirname, "Zeta%.1f_Tvir%.1e_mfp%.1f_Taue%.3f_zre%.3f_delz%.3f_%i_%.0fMpc", 
+	sprintf(dirname, "Zeta%.1f_Tvir%.1e_mfp%.1f_Taue%.3f_zre%.3f_delz%.3f_%i_%.0fMpc",
 		ZETA, TVIR, MFP, taue, z_re, del_z, HII_DIM, BOX_LEN);
 	sprintf(cmnd, "mkdir ../Output_files/kSZ_power/%s", dirname);
 	system(cmnd);

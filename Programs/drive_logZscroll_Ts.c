@@ -41,7 +41,7 @@ int main(int argc, char ** argv){
 
   // open log file
   system("rm ../Log_files/*");
-  LOG = fopen("../Log_files/drive_logzscroll_log_file", "w");
+  LOG = log_open("../Log_files/drive_logzscroll_log_file");
   if (!LOG){
     fprintf(stderr, "drive_zscroll_log_file.c: Unable to open log file\n Aborting...\n");
     return -1;

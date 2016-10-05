@@ -64,7 +64,7 @@
 /*
   If set to 1, the ZA density field is additionally smoothed (asside from the implicit
   boxcar smoothing performed when re-binning the ICs from DIM to HII_DIM) with a Gaussian
-  filter of width 0.2*BOX_LEN/HII_DIM.  The implicit boxcar smoothing in perturb_field.c
+  filter of width R_smooth_density*BOX_LEN/HII_DIM.  The implicit boxcar smoothing in perturb_field.c
   bins the density field on scale DIM/HII_DIM, similar to what Lagrangian codes do 
   when constructing Eulerian grids. In other words, the density field, \delta,
   is quantized into (DIM/HII_DIM)^3 values. If your usage requires smooth density fields,
@@ -73,6 +73,7 @@
   New in v1.1
  */
 #define SMOOTH_EVOLVED_DENSITY_FIELD (int) (1)
+#define R_smooth_density (float) (0.2)
 
 /*
   Use second-order Lagrangian perturbation theory (2LPT).

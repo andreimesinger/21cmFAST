@@ -448,7 +448,7 @@ int main (int argc, char ** argv){
 
     //smooth the field
     if (!EVOLVE_DENSITY_LINEARLY && SMOOTH_EVOLVED_DENSITY_FIELD){
-      HII_filter(updated, 2, 0.2*BOX_LEN/(float)HII_DIM);
+      HII_filter(updated, 2, R_smooth_density*BOX_LEN/(float)HII_DIM);
     }
 
     // save a copy of the k-space density field

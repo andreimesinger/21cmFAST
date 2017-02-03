@@ -61,7 +61,7 @@ int main(int argc, char ** argv){
 
   fprintf(stderr, "Calling init to set up the initial conditions\n");
   fprintf(LOG, "Calling init to set up the initial conditions\n");
-  system("init"); // you only need this call once per realization
+  system("./init"); // you only need this call once per realization
 
   fprintf(stderr, "*************************************\n");
 
@@ -76,7 +76,7 @@ int main(int argc, char ** argv){
   if (USE_HALO_FIELD){
     //  the following only depend on redshift, not ionization field
     // find halos
-    sprintf(cmnd, "find_halos %.2f", Z);
+    sprintf(cmnd, "./find_halos %.2f", Z);
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
@@ -85,7 +85,7 @@ int main(int argc, char ** argv){
 
 
     // shift halos accordig to their linear velocities
-    sprintf(cmnd, "update_halo_pos %.2f", Z);
+    sprintf(cmnd, "./update_halo_pos %.2f", Z);
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
@@ -94,7 +94,7 @@ int main(int argc, char ** argv){
   }
 
   // shift density field and update velocity field
-  sprintf(cmnd, "perturb_field %.2f", Z);
+  sprintf(cmnd, "./perturb_field %.2f", Z);
   time(&curr_time);
   fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
   fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
@@ -111,7 +111,7 @@ int main(int argc, char ** argv){
   }
   while (1){
     // find bubbles
-    sprintf(cmnd, "find_HII_bubbles %.2f %f", Z, ion_eff);
+    sprintf(cmnd, "./find_HII_bubbles %.2f %f", Z, ion_eff);
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
@@ -123,15 +123,15 @@ int main(int argc, char ** argv){
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "gen_size_distr %06.2f 0 ../Boxes/xH_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff,  EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./gen_size_distr %06.2f 0 ../Boxes/xH_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff,  EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
       else
-	sprintf(cmnd, "gen_size_distr %06.2f 0 ../Boxes/xH_nohalos_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./gen_size_distr %06.2f 0 ../Boxes/xH_nohalos_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
       break;
     default:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "gen_size_distr %06.2f 0 ../Boxes/sphere_xH_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./gen_size_distr %06.2f 0 ../Boxes/sphere_xH_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
       else
-	sprintf(cmnd, "gen_size_distr %06.2f 0 ../Boxes/sphere_xH_nohalos_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./gen_size_distr %06.2f 0 ../Boxes/sphere_xH_nohalos_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
     }
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
@@ -144,15 +144,15 @@ int main(int argc, char ** argv){
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "gen_size_distr %06.2f 1 ../Boxes/xH_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./gen_size_distr %06.2f 1 ../Boxes/xH_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
       else
-	sprintf(cmnd, "gen_size_distr %06.2f 1 ../Boxes/xH_nohalos_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./gen_size_distr %06.2f 1 ../Boxes/xH_nohalos_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
       break;
     default:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "gen_size_distr %06.2f 1 ../Boxes/sphere_xH_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./gen_size_distr %06.2f 1 ../Boxes/sphere_xH_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
       else
-	sprintf(cmnd, "gen_size_distr %06.2f 1 ../Boxes/sphere_xH_nohalos_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./gen_size_distr %06.2f 1 ../Boxes/sphere_xH_nohalos_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_z%06.2f_%i_%.0fMpc", Z, ion_eff, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, Z, HII_DIM, BOX_LEN);
     }
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
@@ -165,15 +165,15 @@ int main(int argc, char ** argv){
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "delta_T %06.2f ../Boxes/xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc",  Z, Z, ion_eff, EFF_FACTOR_PL_INDEX,HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc",  Z, Z, ion_eff, EFF_FACTOR_PL_INDEX,HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN);
       else
-	sprintf(cmnd, "delta_T %06.2f ../Boxes/xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", Z, Z, ion_eff, EFF_FACTOR_PL_INDEX,HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", Z, Z, ion_eff, EFF_FACTOR_PL_INDEX,HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN);
       break;
     default:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "delta_T %06.2f ../Boxes/sphere_xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", Z, Z, ion_eff, EFF_FACTOR_PL_INDEX,HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/sphere_xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", Z, Z, ion_eff, EFF_FACTOR_PL_INDEX,HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN);
       else
-	sprintf(cmnd, "delta_T %06.2f ../Boxes/sphere_xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", Z, Z, ion_eff, EFF_FACTOR_PL_INDEX,HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/sphere_xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", Z, Z, ion_eff, EFF_FACTOR_PL_INDEX,HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN);
     }
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);

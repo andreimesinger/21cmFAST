@@ -49,7 +49,7 @@ int main(int argc, char ** argv){
 
   fprintf(stderr, "Calling init to set up the initial conditions\n");
   fprintf(LOG, "Calling init to set up the initial conditions\n");
-  system("init"); // you only need this call once per realization
+  system("./init"); // you only need this call once per realization
 
   Z = ZLOW*1.0001; // match rounding convention from Ts.c; don't remember why i put that in there..
   while (Z < ZHIGH){
@@ -63,7 +63,7 @@ int main(int argc, char ** argv){
     if (USE_HALO_FIELD){
       //  the following only depend on redshift, not ionization field
       // find halos
-      sprintf(cmnd, "find_halos %.2f", Z);
+      sprintf(cmnd, "./find_halos %.2f", Z);
       time(&curr_time);
       fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
       fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
@@ -72,7 +72,7 @@ int main(int argc, char ** argv){
 
 
       // shift halos accordig to their linear velocities
-      sprintf(cmnd, "update_halo_pos %.2f", Z);
+      sprintf(cmnd, "./update_halo_pos %.2f", Z);
       time(&curr_time);
       fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
       fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
@@ -81,7 +81,7 @@ int main(int argc, char ** argv){
     }
 
     // shift density field and update velocity field
-    sprintf(cmnd, "perturb_field %.2f", Z);
+    sprintf(cmnd, "./perturb_field %.2f", Z);
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
@@ -93,7 +93,7 @@ int main(int argc, char ** argv){
     // if it is the lowest redshift, let's call Ts.c
     if ((USE_TS_IN_21CM && (fabs(Z-ZLOW)/Z < 0.0002) ) || (Z > Z_HEAT_MAX)){ // NEW CONDITIONAL
       //    if (USE_TS_IN_21CM && (fabs(Z-ZLOW)/Z < 0.0002) ){
-      sprintf(cmnd, "Ts %.2f", Z);
+      sprintf(cmnd, "./Ts %.2f", Z);
       time(&curr_time);
       fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
       fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
@@ -104,7 +104,7 @@ int main(int argc, char ** argv){
 
 
     // find bubbles
-    sprintf(cmnd, "find_HII_bubbles %.2f", Z);
+    sprintf(cmnd, "./find_HII_bubbles %.2f", Z);
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
@@ -122,15 +122,15 @@ int main(int argc, char ** argv){
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "delta_T %06.2f ../Boxes/xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
       else
-	sprintf(cmnd, "delta_T %06.2f ../Boxes/xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
       break;
     default:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "delta_T %06.2f ../Boxes/sphere_xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/sphere_xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
       else
-	sprintf(cmnd, "delta_T %06.2f ../Boxes/sphere_xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/sphere_xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
     }
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);

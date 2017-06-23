@@ -16,7 +16,7 @@
 /*
   redshift scrolling parameters used by the drive_zscroll drive program
 */
-#define ZSTART (11) //inclusive
+#define ZSTART (12) //inclusive
 #define ZEND (6) // inclusive
 #define ZSTEP (-0.2)
 
@@ -91,7 +91,10 @@ int main(int argc, char ** argv){
 
 
     // find bubbles
-    sprintf(cmnd, "./find_HII_bubbles %f", Z);
+    if (INHOMO_RECO)
+      sprintf(cmnd, "./find_HII_bubbles %f %f", Z, Z-ZSTEP);
+    else
+      sprintf(cmnd, "./find_HII_bubbles %f", Z);
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(start_time, curr_time)/60.0);

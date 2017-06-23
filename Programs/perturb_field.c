@@ -143,7 +143,7 @@ int main (int argc, char ** argv){
   growth_factor = dicke(REDSHIFT);
   displacement_factor_2LPT = -(3.0/7.0) * growth_factor*growth_factor; // 2LPT eq. D8
 
-  fprintf(stderr, "gf = %.2e\ndf = %.2e\n", growth_factor, displacement_factor_2LPT);
+  //  fprintf(stderr, "gf = %.2e\ndf = %.2e\n", growth_factor, displacement_factor_2LPT);
 
 
   dDdt = ddickedt(REDSHIFT); // time derivative of the growth factor (1/s)

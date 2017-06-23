@@ -63,7 +63,6 @@ int main(int argc, char ** argv){
   sprintf(filename, "../Log_files/delta_T_log_file_%d", getpid());
   LOG = fopen(filename, "w");
   if (!LOG){ fprintf(stderr, "delta_T.c: Error opening log file %s\n", filename);}
-  fprintf(LOG, "*********  REDSHIFT %06.2f  ***********\n", REDSHIFT);
   T_rad = T_cmb*(1+REDSHIFT);
   H = hubble(REDSHIFT);
   const_factor = 27 * (OMb*hlittle*hlittle/0.023) * 
@@ -235,7 +234,6 @@ int main(int argc, char ** argv){
   temp=0;
   temp_ct=0;
   for (i=0; i<HII_DIM; i++){
-    fprintf(stderr, "%i...", i);
     for (j=0; j<HII_DIM; j++){
       for (k=0; k<HII_DIM; k++){
 
@@ -263,7 +261,6 @@ int main(int argc, char ** argv){
       }
     }
   }
-  printf("%e\n", temp/(double)temp_ct);
   ave /= (float)HII_TOT_NUM_PIXELS;
   fprintf(stderr, "Without velocities, max is %e, min is %e, ave is %e\n", max, min, ave);
   fprintf(LOG, "Without velocities, max is %e, min is %e, ave is %e\n", max, min, ave);
@@ -379,13 +376,10 @@ int main(int argc, char ** argv){
     }
   }
   ave /= (HII_TOT_NUM_PIXELS+0.0);
-  printf("Max is %e\t dvdx is %e\n", max, maxdvdx);
-  printf("Min is %e\t dvdx is %e\n", min, mindvdx);
   fprintf(LOG, "With velocities:\nMax is %e\t dvdx is %e, ave is %e\n", max, maxdvdx, ave);
   fprintf(stderr, "With velocities:\nMax is %e\t dvdx is %e, ave is %e\n", max, maxdvdx, ave);
   fprintf(LOG, "%llu out of %llu voxels (fraction=%e) exceeded max allowed velocity gradient\n", nonlin_ct, HII_TOT_NUM_PIXELS, nonlin_ct/(double)HII_TOT_NUM_PIXELS);
   fprintf(stderr, "%llu out of %llu voxels (fraction=%e) exceeded max allowed velocity gradient\n", nonlin_ct, HII_TOT_NUM_PIXELS, nonlin_ct/(double)HII_TOT_NUM_PIXELS);
-  fprintf(LOG, "Min is %e\t dvdx is %e\n\n", min, mindvdx);
 
   
   // now write out the delta_T box with velocity correction
@@ -402,7 +396,7 @@ int main(int argc, char ** argv){
       sprintf(filename, "../Boxes/sphere_delta_T_v%i_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_TvirminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX,  curr_alphaX, curr_TvirX, ave,  curr_Pop, HII_DIM, BOX_LEN);
   }
   F = fopen(filename, "wb");
-  fprintf(stderr, "\nWritting output delta_T box: %s\n", filename);
+  fprintf(stderr, "Writting output delta_T box: %s\n", filename);
   if (mod_fwrite(delta_T, sizeof(float)*HII_TOT_NUM_PIXELS, 1, F)!=1){
     fprintf(stderr, "delta_T: Write error occured while writting delta_T box.\n");
   }

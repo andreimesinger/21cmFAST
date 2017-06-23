@@ -2,7 +2,7 @@
 #include "../Parameter_files/ANAL_PARAMS.H"
 #include "filter.c"
 
-#define FLIP_BOX (int) 1
+#define FLIP_BOX (int) (0)
 
 /*****************************************************************************************
    USAGE: redshift_interpolate_boxes <BOX TYPE> 

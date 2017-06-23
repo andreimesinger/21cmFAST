@@ -45,6 +45,7 @@
 #include "../Cosmo_c_files/misc.c"
 #include "../Cosmo_c_files/cosmo_progs.c"
 #include "../Cosmo_c_files/ps.c"
+#include "../Cosmo_c_files/recombinations.c"
 
 #define MIDDLE (DIM/2)
 #define D (unsigned long long)DIM // the unsigned long long dimension

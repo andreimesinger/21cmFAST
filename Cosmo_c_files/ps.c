@@ -134,6 +134,8 @@ float get_R_c();  // returns R_CUTOFF
 double get_M_min_ion(float z);
 /***************************************/
 
+
+
 /* Returns the minimum source mass for ionizing sources, according to user specifications */
 double get_M_min_ion(float z){
   double MMIN;

@@ -16,6 +16,7 @@ COSMO_FILES = 	${PARAMETER_DIR}/COSMOLOGY.H \
 	${COSMO_DIR}/ps.c \
 	${COSMO_DIR}/cosmo_progs.c \
 	${COSMO_DIR}/misc.c \
+	${COSMO_DIR}/recombinations.c \
 	${PARAMETER_DIR}/INIT_PARAMS.H \
 	${PARAMETER_DIR}/ANAL_PARAMS.H \
 	${PARAMETER_DIR}/HEAT_PARAMS.H \

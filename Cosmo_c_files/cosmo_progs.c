@@ -15,16 +15,19 @@ CAUTION:  many of these assume standard cosmology (k=0, etc.), so check them bef
 double avoigt, cvoigt[31];
 int VOIGT_INIT;
 
+
 /**** PROTOTYPES ****/
+double neutral_fraction(double density, double T4, double gamma12, int usecaseB); // neutral fraction given H density (cm^-3), gas temperature (in 1e4 K), and gamma12  (in 1e-12 s^-1). if usecase B, then use case B, otherwise case A
+
 double hubble(float z);  /* returns the hubble "constant" at z */
 double t_hubble(float z);  /* returns hubble time, t_h = 1/H */
 float t_dynamical(float z); /* dynamical time at z in seconds */
 double M_jeans_neutralIGM(float z); /* returns the cosmological jeans mass at z; in neutral IGM */
 double M_jeans_general(float z, float Del, float T, float mu); /* returns the cosmological jeans mass (in solar masses) at z, non-linear overdensity Del=rho/<rho>, temperature T, and \mu */
 float z_gasCMBdecoupling(); /* the redshift at which the gas temperature diverges from the CMB temperature */
-double neutral_fraction(double density, double gamma_ion); /* neutral fraction given H density (cm^-3) and gamma (1/s) */
 double nftogamma(double nf, float z); /* ionization rate (1/s) from neutral fraction (assuming mean density at z) */
-double alpha_A(double T); //case A hydrogen recombination coefficient (Abel et al. 1997)
+double alpha_A(double T); //case A hydrogen recombination coefficient (Abel et al. 1997) T in K
+double alpha_B(double T); //case B hydrogen recombination coefficient (Spitzer 1978) T in K
 float TtoM(float z, float T, float mu);
 float MtoVcir(float z, double M); // M in M_sun, Vcir in proper km/s
 float MtoRvir(float z, double M); // M in M_sun, Rvir in comoving Mpc
@@ -138,23 +141,32 @@ float z_gasCMBdecoupling(){
 }
 
 
+/***********  END NEW FUNCTIONS for v1.3 (recombinations) *********/
 /*
   Function NEUTRAL_FRACTION returns the hydrogen neutral fraction, chi, given:
-  hydrogen density (cm^-3)
-  ionization rate (s^-1)
+  hydrogen density (pcm^-3)
+  gas temperature (10^4 K)
+  ionization rate (1e-12 s^-1)
 */
-double neutral_fraction(double density, double gamma_ion){
-  double chi, b;
+double neutral_fraction(double density, double T4, double gamma, int usecaseB){
+  double chi, b, alpha, corr_He = 1.0/(4.0/Y_He - 3);
 
+  if (usecaseB)
+    alpha = alpha_B(T4*1e4);
+  else
+    alpha = alpha_A(T4*1e4);
+  
+  gamma *= 1e-12;
+  
   // approximation chi << 1
-  chi = density * alphaB_10k / gamma_ion;
+  chi = (1+corr_He)*density * alpha / gamma;
   if (chi < TINY){ return 0;}  
   if (chi < 1e-5)
     return chi;
 
   //  this code, while mathematically accurate, is numerically buggy for very small x_HI, so i will use valid approximation x_HI <<1 above when x_HI < 1e-5, and this otherwise... the two converge seemlessly
   //get solutions of quadratic of chi (neutral fraction)
-  b = -2 - gamma_ion / (density*alphaB_10k);
+  b = -2 - gamma / (density*(1+corr_He)*alpha);
   chi = ( -b - sqrt(b*b - 4) ) / 2.0; //correct root
   return chi;
 }
@@ -178,7 +190,7 @@ double nftogamma(double nf, float z){
   gammamin = 0;
   while (1){
     gammaguess = (gammamax+gammamin)/2.0;
-    nfguess = neutral_fraction(No*pow(1+z, 3), gammaguess);
+    nfguess = neutral_fraction(No*pow(1+z, 3), 1.0, gammaguess*1e-12, 1);
     if ( fabs((nfguess-nf)/nf) > epsilon){  /* guess isn't close enough */
       if (nfguess > nf){ gammamin = gammaguess;}
       else { gammamax = gammaguess;}
@@ -192,7 +204,10 @@ double nftogamma(double nf, float z){
 
 
 
-
+/* returns the case B hydrogen recombination coefficient (Spitzer 1978) in cm^3 s^-1*/
+double alpha_B(double T){
+  return alphaB_10k * pow (T/1.0e4, -0.75);
+}
 
 /* returns the case A hydrogen recombination coefficient (Abel et al. 1997) in cm^3 s^-1*/
 double alpha_A(double T){
@@ -654,7 +669,7 @@ double HI_ion_crosssec(double nu){
     nu+=TINY;
 
   epsilon = sqrt( nu/NUIONIZATION - 1);
-  return (6.3e-18)/Z/Z * pow(NUIONIZATION/nu, 4) 
+  return SIGMA_HI/Z/Z * pow(NUIONIZATION/nu, 4) 
     * pow(E, 4-(4*atan(epsilon)/epsilon)) / (1-pow(E, -2*PI/epsilon));
 }
 

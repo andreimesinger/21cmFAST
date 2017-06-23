@@ -32,7 +32,7 @@
 */
 
 float *Fcoll;
-asdasd
+
 void init_21cmMC_arrays() {
     
     Overdense_spline_GL_low = calloc(Nlow,sizeof(float));
@@ -80,12 +80,66 @@ void destroy_21cmMC_arrays() {
 FILE *LOG;
 unsigned long long SAMPLING_INTERVAL = (((unsigned long long)(HII_TOT_NUM_PIXELS/1.0e6)) + 1); //used to sample density field to compute mean collapsed fraction
 
+/* FUNCTION PARSE_ARGUMENTS PARSES THE COMMAND LINE ARGUMENTS, RETURNING 1 if correct format and zero otherwise */
+int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, float * ION_EFF_FACTOR,
+		    float * TVIR_MIN, float * MFP, float * ALPHA, float * REDSHIFT, float * ZSTEP){
+  
+  // check if user wants to specify the multi threading
+  if ((argc>3) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
+    // user specified num proc
+    *num_th = atoi(argv[2]);
+    *arg_offset = 2;
+  }
+  else{
+    *num_th = NUMCORES;
+    *arg_offset = 0;
+  }
+
+  // parse the remaining arguments
+  if (argc == (*arg_offset+3)){
+    *ION_EFF_FACTOR = HII_EFF_FACTOR; // use default from ANAL_PARAMS.H
+    *TVIR_MIN = ION_Tvir_MIN;
+    *MFP = R_BUBBLE_MAX;
+    *ALPHA = 0;
+  }
+  else if (argc == (*arg_offset+4)){ // just use parameter efficiency
+    *ION_EFF_FACTOR = atof(argv[*arg_offset+3]); // use command line parameter
+    *TVIR_MIN = ION_Tvir_MIN;
+    *MFP = R_BUBBLE_MAX;
+    *ALPHA = 0;
+  }
+  else if (argc == (*arg_offset+6)){ // use all reionization command line parameters, other than ALPHA
+    *ION_EFF_FACTOR = atof(argv[*arg_offset+3]);
+    *TVIR_MIN = atof(argv[*arg_offset+4]);
+    *MFP = atof(argv[*arg_offset+5]);
+    *ALPHA = 0;
+  }
+  else if (argc == (*arg_offset+7)){ // use all reionization command line parameters
+    *ION_EFF_FACTOR = atof(argv[*arg_offset+3]);
+    *TVIR_MIN = atof(argv[*arg_offset+4]);
+    *MFP = atof(argv[*arg_offset+5]);
+    *ALPHA = atof(argv[*arg_offset+6]);
+  }
+  else{ return 0;} // format is not allowed
+  
+  *REDSHIFT = atof(argv[*arg_offset+1]);
+  *ZSTEP = atof(argv[*arg_offset+2]);
+  
+  fprintf(stderr, "find_HII_bubbles: command line parameters are as follows\nnum threads=%i, zeta=%g, Tvirmin=%g K, mfp=%g Mpc, alpha=%g, z=%g, dz=%g\n",
+	  *num_th, *ION_EFF_FACTOR, *TVIR_MIN, *MFP, *ALPHA, *REDSHIFT, *ZSTEP);
+  
+  return 1;
+}
+
+
+
+/********** MAIN PROGRAM **********/
 int main(int argc, char ** argv){
 
     char filename[300];
     FILE *F, *pPipe;
     float REDSHIFT, mass, R, xf, yf, zf, growth_factor, pixel_mass, cell_length_factor;
-    float ave_N_min_cell, ION_EFF_FACTOR, M_MIN, ALPHA;
+    float ave_N_min_cell, ION_EFF_FACTOR, M_MIN;
     int x,y,z, N_min_cell, LAST_FILTER_STEP, num_th, arg_offset, i,j,k;
     unsigned long long ct, ion_ct, sample_ct;
     float f_coll_crit, pixel_volume, density_over_mean, erfc_num, erfc_denom, erfc_denom_cell, res_xH, Splined_Fcoll;
@@ -97,47 +151,22 @@ int main(int argc, char ** argv){
     gsl_rng * r;
     i=0;
     float nua, dnua, temparg;
+    float ALPHA =  EFF_FACTOR_PL_INDEX;
+    float fabs_dtdz, ZSTEP = 0.2;//Zstep defined in drive_zscroll_noTS.c
+    const float dz = 0.01;
 
-    ALPHA =  EFF_FACTOR_PL_INDEX;
     
-    // check arguments
-    if ((argc>2) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
-        // user specified num proc
-        num_th = atoi(argv[2]);
-        fprintf(stderr, "find_HII_bubbles: threading with user-specified %i threads\n", num_th);
-        arg_offset = 2;
-    }
-    else{
-        num_th = NUMCORES;
-        fprintf(stderr, "find_HII_bubbles: threading with default %i threads\n", num_th);
-        arg_offset = 0;
-    }
-    if (argc == (arg_offset+2)){
-        ION_EFF_FACTOR = HII_EFF_FACTOR; // use default from ANAL_PARAMS.H
-        TVIR_MIN = ION_Tvir_MIN;
-        MFP = R_BUBBLE_MAX;
-    }
-    else if (argc == (arg_offset+3)){ // just use parameter efficiency
-        ION_EFF_FACTOR = atof(argv[arg_offset+2]); // use command line parameter
-        TVIR_MIN = ION_Tvir_MIN;
-        MFP = R_BUBBLE_MAX;
-    }
-    else if (argc == (arg_offset+5)){ // use all reionization command line parameters
-        ION_EFF_FACTOR = atof(argv[arg_offset+2]);
-        TVIR_MIN = atof(argv[arg_offset+3]);
-        MFP = atof(argv[arg_offset+4]);
-    }
-    else if (argc == (arg_offset+6)){ // use all reionization command line parameters
-        ION_EFF_FACTOR = atof(argv[arg_offset+2]);
-        TVIR_MIN = atof(argv[arg_offset+3]);
-        MFP = atof(argv[arg_offset+4]);
-        ALPHA = atof(argv[arg_offset+5]);
-    }
-    else{
-        fprintf(stderr, "USAGE: find_HII_bubbles <redshift> [<ionization efficiency factor zeta>] [<Tvir_min> <ionizing mfp in ionized IGM> <Alpha, power law for ionization efficiency>]\nAborting...\n");
+    /******** BEGIN INITIALIZATION ********/
+    
+    // PARSE COMMAND LINE ARGUMENTS
+    if ( !parse_arguments(argc, argv, &num_th, &arg_offset, &ION_EFF_FACTOR, &TVIR_MIN, &MFP, &ALPHA, &REDSHIFT, &ZSTEP)) {
+        fprintf(stderr, "USAGE: find_HII_bubbles <redshift> <delta redshift> [<ionization efficiency factor zeta>] \
+                         [<Tvir_min> <ionizing mfp in ionized IGM> <Alpha, power law for ionization efficiency>]\nAborting...\n");
         return -1;
     }
-
+    fabs_dtdz = fabs(dtdz(REDSHIFT));
+    return 0;
+  
     if (fftwf_init_threads()==0){
         fprintf(stderr, "find_HII_bubbles: ERROR: problem initializing fftwf threads\nAborting\n.");
         return -1;
@@ -148,7 +177,6 @@ int main(int argc, char ** argv){
     gsl_rng_env_setup();
     T = gsl_rng_default;
     r = gsl_rng_alloc(T);
-    REDSHIFT = atof(argv[arg_offset+1]);
     growth_factor = dicke(REDSHIFT);
     pixel_volume = pow(BOX_LEN/(float)HII_DIM, 3);
     pixel_mass = RtoM(L_FACTOR*BOX_LEN/(float)HII_DIM);

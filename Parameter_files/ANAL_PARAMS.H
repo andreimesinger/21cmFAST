@@ -26,7 +26,7 @@
   \zeta = HII_EFF_FACTOR * (M_halo / ION_M_MIN)^EFF_FACTOR_PL_INDEX
   see Nion_note.pdf in the root folder.
 */
-#define HII_EFF_FACTOR (float) (20)
+#define HII_EFF_FACTOR (float) (30)
 
 
 /*
@@ -44,15 +44,32 @@
   The bubble filtering procedure uses the minimum
   value of L_FACTOR*BOX_LEN and R_BUBBLE_MAX as the maximum allowed
   radius of a single, cohesive ionized region. (in practice, the ionization
-  field is extreemly insensitive to this choice)
+  field is extreemly insensitive to this choice).
+
+  If setting IHOMO_RECO below to 1, R_BUBBLE_MAX should be at least ~20Mpc,
+  physically corresponding to the mfp at the end of the EoR.
+  Results during the EoR are insensitive to this choice.
 */
-#define R_BUBBLE_MAX (float) (20)
+#define R_BUBBLE_MAX (float) (50)
 
 /*
   INHOMO_RECO = 1 compute inhomogeneous recombinations, ala Sobacchi & Mesinger (2014).
   This *requires* stepping down in redshift, e.g. using drive_logZscroll_Ts.c or  drive_zscroll_noTs.c
 */
 #define INHOMO_RECO (int) (1)
+
+
+/*
+  Power law index of the UVB during the EoR.  This is only used if INHOMO_RECO is on, in order to compute the
+  local mean free path inside the cosmic HII regions
+ */
+#define ALPHA_UVB (float) (5)
+
+
+/*
+  Typical star-formation timescale, in units of the Hubble time.  This is used to compute the UVB if inhomo_reco is on.
+ */
+#define t_STAR (float) (0.5)
 
 
 /*
@@ -116,7 +133,7 @@
    Minimum radius of an HII region in cMpc.  One can set this to 0, but should be careful with
    shot noise if the find_HII_bubble algorithm is run on a fine, non-linear density grid.
  */
-#define R_BUBBLE_MIN (float) (1)
+#define R_BUBBLE_MIN (float) (L_FACTOR*1)
 
 
 /*

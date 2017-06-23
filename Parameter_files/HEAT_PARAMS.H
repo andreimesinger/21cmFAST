@@ -9,12 +9,12 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
 /*
   Flag specifying whether one wants to calculate the spin temperature or just assume (Ts>>Tk)
 */
-#define USE_TS_IN_21CM (int) (0)
+#define USE_TS_IN_21CM (int) (1)
 
 
 /*
   Efficiency parameter corresponding to the number of x-ray photons per
-  solar mass in stars.
+  solar mass in stars, which escape the galaxy.
 */
 #define ZETA_X (double) (2.0e56) // 2e56 ~ 0.3 X-ray photons per stellar baryon
 
@@ -30,7 +30,7 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
   There might be wierd behaviour if you set this to less than the HeII ionization
   threshold, <~54.4 eV
 */
-#define NU_X_THRESH (double) (300*NU_over_EV)
+#define NU_X_THRESH (double) (500*NU_over_EV)
 
 
 /*
@@ -54,14 +54,14 @@ Filter choice used for smoothing the linear density field to obtain the collapse
 #define HEAT_FILTER (int) 0
 
 
-#define CLUMPING_FACTOR (double) 1 /* sub grid scale.  note that if you want to run-down from a very high redshift (>50), you should set this to one.. */
+#define CLUMPING_FACTOR (double) (2) /* sub grid scale.  note that if you want to run-down from a very high redshift (>50), you should set this to one.. */
 
 
 /*
   Maximum redshift used in the Tk and x_e evolution equations.
   Temperature and x_e are assumed to be homogenous at higher redshifts.
 */
-#define Z_HEAT_MAX (float) 35
+#define Z_HEAT_MAX (float) (35)
 
 /*
   Maximum radius of influence for computing Xray and Lya pumping in cMpc. This
@@ -70,27 +70,27 @@ Filter choice used for smoothing the linear density field to obtain the collapse
   to increase speed (i.e. the code integrates as far back as ZPP_MAX, where R_XLy_MAX
   is the comoving separation between ZPP_MAX and Z_HEAT_MAX).
 */
-#define R_XLy_MAX (float) 500
+#define R_XLy_MAX (float) (500)
 
 /*
   Number of spherical anulli used to compute df_coll/dz' in the simulation box.
   The spherical annulii are evenly spaced in log R, ranging from the cell size to the box size.
   Ts.c will create this many boxes of size HII_DIM, so be wary of memory usage if values are high.
 */
-#define NUM_FILTER_STEPS_FOR_Ts (int) 40
+#define NUM_FILTER_STEPS_FOR_Ts (int) (40)
 
 /*
   Redshift step-size used in the z' integral.  Logarithmic dz.
 */
-#define ZPRIME_STEP_FACTOR (float) 1.02
+#define ZPRIME_STEP_FACTOR (float) (1.02)
 
 
 /*
   If the following are >0, then the user chooses to overwrite the default boundary conditions
   at Z_HEAT_MAX obtained from RECFAST, and use his/her own.
  */
-#define TK_at_Z_HEAT_MAX (double) -1
-#define XION_at_Z_HEAT_MAX (double) -1
+#define TK_at_Z_HEAT_MAX (double) (-1)
+#define XION_at_Z_HEAT_MAX (double) (-1)
 
 
 
@@ -99,7 +99,7 @@ Filter choice used for smoothing the linear density field to obtain the collapse
   This would be useful if investigating redshift evolution, so Ts.c needs to be called only once
   at the low redshift, and then one has all of the higher redshift Ts boxes upon completion.
  */
-#define Ts_verbose (int) 1
+#define Ts_verbose (int) (1)
 
 
 /*
@@ -117,19 +117,19 @@ Filter choice used for smoothing the linear density field to obtain the collapse
   Pop == 2 Pop2 stars heat the early universe
   Pop == 3 Pop3 stars heat the early universe
 */
-#define Pop (int) 2
+#define Pop (int) (2)
 
 
 /*
   Number of ionizing photons per baryon of the two stellar species
 */
-#define Pop2_ion (float) 4361
-#define Pop3_ion (float) 44021
+#define Pop2_ion (float) (4361)
+#define Pop3_ion (float) (44021)
 
 /*
   Flag to turn off or on verbose status messages in Ts.  The GSL libraries are very finicky,
   and this is useful when to help issolate why Ts crashed, if it did...
  */
-#define DEBUG_ON (int) 0
+#define DEBUG_ON (int) (0)
 
 #endif

@@ -24,14 +24,6 @@ int main(int argc, char ** argv){
   int status;
 
 
-  // open log file
-  system("rm ../Log_files/*");
-  LOG = log_open("../Log_files/drive_logzscroll_log_file");
-  if (!LOG){
-    fprintf(stderr, "drive_zscroll_log_file.c: Unable to open log file\n Aborting...\n");
-    return -1;
-  }
-
 
   time(&start_time);
 
@@ -48,10 +40,18 @@ int main(int argc, char ** argv){
   //  system("mkdir ../Lighttravel_filelists");
   init_ps();
 
+  // open log file
+  system("rm ../Log_files/*");
+  LOG = log_open("../Log_files/drive_logzscroll_log_file");
+  if (!LOG){
+    fprintf(stderr, "drive_zscroll_log_file.c: Unable to open log file\n Aborting...\n");
+    return -1;
+  }
+
 
   fprintf(stderr, "Calling init to set up the initial conditions\n");
   fprintf(LOG, "Calling init to set up the initial conditions\n");
-  //  system("./init"); // you only need this call once per realization
+  system("./init"); // you only need this call once per realization
 
   Z = ZLOW*1.0001; // match rounding convention from Ts.c
 
@@ -62,14 +62,14 @@ int main(int argc, char ** argv){
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
     fflush(NULL);
-    //    system(cmnd);
+    system(cmnd);
     
     sprintf(cmnd, "./Ts %.2f", Z);
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
     fflush(NULL);
-    //    system(cmnd);
+    system(cmnd);
   }
 
 
@@ -110,7 +110,7 @@ int main(int argc, char ** argv){
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
     fflush(NULL);
-    //    system(cmnd);
+    system(cmnd);
     // end of solely redshift dependent things, now do ionization stuff
 
 

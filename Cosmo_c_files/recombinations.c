@@ -15,7 +15,7 @@
 #include "misc.c"
 #include "ps.c"
 
-#define A_NPTS (int) (50) /*Warning: the calculation of the MHR model parameters is valid only from redshift 2 to A_NPTS+2*/
+#define A_NPTS (int) (60) /*Warning: the calculation of the MHR model parameters is valid only from redshift 2 to A_NPTS+2*/
 static double A_table[A_NPTS], A_params[A_NPTS];
 static gsl_interp_accel *A_acc;
 static gsl_spline *A_spline;

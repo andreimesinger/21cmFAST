@@ -34,7 +34,7 @@ static gsl_spline *beta_spline;
 #define RR_DEL_Z (float) (0.2)
 #define RR_lnGamma_NPTS (int) (300) // number of samples of gamma for the interpolation tables
 #define RR_lnGamma_min (double) (-10) // min ln gamma12 used
-#define RR_DEL_lnGamma (float) (0.2)
+#define RR_DEL_lnGamma (float) (0.1)
 static double RR_table[RR_Z_NPTS][RR_lnGamma_NPTS], lnGamma_values[RR_lnGamma_NPTS];
 static gsl_interp_accel *RR_acc[RR_Z_NPTS];
 static gsl_spline *RR_spline[RR_Z_NPTS];

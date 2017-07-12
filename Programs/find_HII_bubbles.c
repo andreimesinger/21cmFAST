@@ -260,7 +260,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 
 
     // compute the mean collpased fraction at this redshift
-    if(fabs(ALPHA) < FRACT_FLOAT_ERR ){
+    if(fabs(ALPHA) > FRACT_FLOAT_ERR ){
       mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
     }
     else {
@@ -648,7 +648,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	temparg =  2*(pow(sigma_z0(M_MIN), 2) - pow(sigma_z0(massofscaleR), 2) );
 	erfc_denom = sqrt(temparg);
 	    
-	if( fabs(ALPHA) < FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
+	if( fabs(ALPHA) > FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
 	  initialiseGL_Fcoll(NGLlow,NGLhigh,M_MIN,massofscaleR);
 	  initialiseFcoll_spline(REDSHIFT,M_MIN,massofscaleR,massofscaleR,M_MIN,ALPHA);
 	}
@@ -665,7 +665,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	      else{
 		density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
 		if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
-		  if ( fabs(ALPHA) < FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
+		  if ( fabs(ALPHA) > FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
 		    FcollSpline(density_over_mean - 1, &(Splined_Fcoll));
 		  }
 		  else{ // we can assume the classic constant ionizing luminosity to halo mass ratio

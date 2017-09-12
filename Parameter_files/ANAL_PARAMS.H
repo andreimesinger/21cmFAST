@@ -26,7 +26,7 @@
   \zeta = HII_EFF_FACTOR * (M_halo / ION_M_MIN)^EFF_FACTOR_PL_INDEX
   see Nion_note.pdf in the root folder.
 */
-#define HII_EFF_FACTOR (float) (30)
+#define HII_EFF_FACTOR (float) (20)
 
 
 /*
@@ -38,6 +38,19 @@
  */
 #define EFF_FACTOR_PL_INDEX (float) (0)
 
+/*
+  NEW IN V1.3(?): If HII_EFF_FACTOR_SFR is not zero, use the new parametrization:
+  \zeta = N_{\gamma} x f_{esc} x f_{\ast} x f_{b}
+  f_{\ast} = f_{ast,10}(M_{halo}/10^10 M_{sol})^alpha_{\ast}
+  f_{esc} = f_{esc,10}(M_{halo}/10^10 M_{sol})^alpha_{esc}
+*/
+#define HII_EFF_FACTOR_SFR (int) (0)
+
+#define STELLAR_BARYON_FRAC (double) (0.05)
+#define STELLAR_BARYON_PL (double) (0)
+#define ESC_FRAC (double) (0.1)
+#define ESC_PL (double) (0)
+#define MASS_DROP (double) (1.)
 
 /*
   Maximum horizon for ionizing photons, in comoving Mpc.
@@ -50,7 +63,7 @@
   physically corresponding to the mfp at the end of the EoR.
   Results during the EoR are insensitive to this choice.
 */
-#define R_BUBBLE_MAX (float) (50)
+#define R_BUBBLE_MAX (float) (20)
 
 /*
   INHOMO_RECO = 1 compute inhomogeneous recombinations, ala Sobacchi & Mesinger (2014).

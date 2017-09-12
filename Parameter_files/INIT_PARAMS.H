@@ -30,21 +30,21 @@
 
 /******** BEGIN USER CHANGABLE DEFINITIONS   **********/
 #define RANDOM_SEED (long) (1) // seed for the random number generator
-#define BOX_LEN (float) 300 // in Mpc
+#define BOX_LEN (float) 250 // in Mpc
 #define DIM (int) 768 // number of cells for the high-res box (sampling ICs) along a principal axis
 // to avoid sampling issues, DIM should be at least 3 or 4 times HII_DIM, and an integer multiple)
-#define HII_DIM (int) 256 // number of cells for the low-res box
+#define HII_DIM (int) 128 // number of cells for the low-res box
 
 /****** New in v1.1. ****** Threading parameters  ***/
-#define NUMCORES (int) 8 // # of cores you wish to allocate (must be shared mem)
-#define RAM (float) 16 // physical memory in GB available
+#define NUMCORES (int) 2 // # of cores you wish to allocate (must be shared mem)
+#define RAM (float) 8 // physical memory in GB available
 /******** END USER CHANGABLE DEFINITIONS   **********/
 
 #include "ANAL_PARAMS.H"
 #include "HEAT_PARAMS.H"
 #include "../Cosmo_c_files/misc.c"
 #include "../Cosmo_c_files/cosmo_progs.c"
-#include "../Cosmo_c_files/ps.c"
+#include "../Cosmo_c_files/ps_v2.c"
 #include "../Cosmo_c_files/recombinations.c"
 
 #define MIDDLE (DIM/2)

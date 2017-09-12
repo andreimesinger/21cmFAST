@@ -1,7 +1,7 @@
 # C compiler and flags
 CPPFLAGS = -I/usr/local/include
 LDFLAGS = -lgsl -lgslcblas -lfftw3f_omp -lfftw3f -lm
-CC      = gcc -fopenmp
+CC      = gcc-7.1.0 -fopenmp
 #CC      = gcc -fopenmp -mtune=core2 -march=core2 -m64 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_THREAD_SAFE #for my mac pro 64bit
 
 
@@ -13,7 +13,7 @@ PARAMETER_DIR = ../Parameter_files
 
 # non-project dependencies
 COSMO_FILES = 	${PARAMETER_DIR}/COSMOLOGY.H \
-	${COSMO_DIR}/ps.c \
+	${COSMO_DIR}/ps_v2.c \
 	${COSMO_DIR}/cosmo_progs.c \
 	${COSMO_DIR}/misc.c \
 	${COSMO_DIR}/recombinations.c \
@@ -133,11 +133,11 @@ delta_T:	delta_T.c \
 	${CC} ${CPPFLAGS} -o delta_T delta_T.c ${LDFLAGS}
 
 
-find_HII_bubbles:	find_HII_bubbles.c \
+find_HII_bubbles:	find_HII_bubbles_v2.c \
 	bubble_helper_progs.c \
 	${COSMO_FILES}
 
-	${CC} ${CPPFLAGS} -o find_HII_bubbles find_HII_bubbles.c ${LDFLAGS}
+	${CC} ${CPPFLAGS} -o find_HII_bubbles find_HII_bubbles_v2.c ${LDFLAGS}
 
 
 find_halos:	find_halos.c \

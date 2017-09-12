@@ -150,7 +150,7 @@ int main(int argc, char ** argv){
   int x,y,z, N_min_cell, LAST_FILTER_STEP, num_th, arg_offset, i,j,k;
   unsigned long long ct, ion_ct, sample_ct;
   float f_coll_crit, pixel_volume,  density_over_mean, erfc_num, erfc_denom, erfc_denom_cell, res_xH, Splined_Fcoll;
-  float *xH=NULL, TVIR_MIN, MFP, xHI_from_xrays, std_xrays, *z_re=NULL, *Gamma12=NULL, *mfp=NULL;
+  float *xH=NULL, *xH_m=NULL, TVIR_MIN, MFP, xHI_from_xrays, std_xrays, *z_re=NULL, *Gamma12=NULL, *mfp=NULL;
   fftwf_complex *M_coll_unfiltered=NULL, *M_coll_filtered=NULL, *deltax_unfiltered=NULL, *deltax_filtered=NULL, *xe_unfiltered=NULL, *xe_filtered=NULL;
   fftwf_complex *N_rec_unfiltered=NULL, *N_rec_filtered=NULL;
   fftwf_plan plan;
@@ -172,7 +172,6 @@ int main(int argc, char ** argv){
   /*************************************************************************************/  
   /******** BEGIN INITIALIZATION ********/
   /*************************************************************************************/  
-  
   // PARSE COMMAND LINE ARGUMENTS
   if ( !parse_arguments(argc, argv, &num_th, &arg_offset, &ION_EFF_FACTOR, &TVIR_MIN, &MFP, &ALPHA, &REDSHIFT, &PREV_REDSHIFT)) {
     fprintf(stderr, "USAGE: find_HII_bubbles <redshift> [<previous redshift>] \n \
@@ -197,8 +196,11 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
     cell_length_factor = 1;
   }
   init_ps();
-  if (INHOMO_RECO) {  init_MHR();}
+  printf("init_ps end\n");
+  //init_MHR();
+  printf("init_MHR end\n");
   init_21cmMC_arrays();
+  printf("init_21cmMC_arrays end\n");
 
    
   // SET THE MINIMUM HALO MASS HOSTING SOURCES
@@ -251,16 +253,16 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 
     // allocate memory for the neutral fraction box
     xH = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
-    //    xH_m = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
-    if (!xH){
+    xH_m = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
+    if (!xH || !xH_m){
       strcpy(error_message, "find_HII_bubbles.c: Error allocating memory for xH box\nAborting...\n");
       goto CLEANUP;
     }
-    for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){    xH[ct] = 1;  }
+    for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){    xH[ct] = xH_m[ct] = 1;  }
 
 
     // compute the mean collpased fraction at this redshift
-    if(fabs(ALPHA) > FRACT_FLOAT_ERR ){
+    if(fabs(ALPHA) < FRACT_FLOAT_ERR ){
       mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
     }
     else {
@@ -281,7 +283,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	if (!(F = fopen(filename, "rb"))){
 	  fprintf(stderr, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fprintf(LOG, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
-	  fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
+	  fclose(LOG); fftwf_free(xH);  fftwf_free(xH_m); fftwf_cleanup_threads();
 	  free_ps(); destroy_21cmMC_arrays(); return -1;
 	}
 	for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){
@@ -328,7 +330,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	fprintf(stderr, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
 	fprintf(LOG, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
       }
-      free_ps(); fclose(F); fclose(LOG); fftwf_free(xH);  fftwf_cleanup_threads();
+      free_ps(); fclose(F); fclose(LOG); fftwf_free(xH);  fftwf_free(xH_m);  fftwf_cleanup_threads();
        destroy_21cmMC_arrays(); return (int) (global_xH * 100);
     }
 
@@ -520,6 +522,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       fprintf(stderr, error_message);
       fprintf(LOG, error_message);
       fftwf_free(xH);
+      fftwf_free(xH_m);
       fftwf_free(z_re);
       fftwf_free(Gamma12);
       fclose(LOG);
@@ -528,8 +531,9 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       fftwf_free(M_coll_unfiltered);
       fftwf_free(M_coll_filtered);
       fftwf_cleanup_threads();
+      if (F){ fclose(F);}
       free_ps();
-      if (INHOMO_RECO) { free_MHR();}
+      //free_MHR();
       fftwf_free(xe_filtered);
       fftwf_free(xe_unfiltered);
       fftwf_free(N_rec_unfiltered);
@@ -646,7 +650,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	temparg =  2*(pow(sigma_z0(M_MIN), 2) - pow(sigma_z0(massofscaleR), 2) );
 	erfc_denom = sqrt(temparg);
 	    
-	if( fabs(ALPHA) > FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
+	if( fabs(ALPHA) < FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
 	  initialiseGL_Fcoll(NGLlow,NGLhigh,M_MIN,massofscaleR);
 	  initialiseFcoll_spline(REDSHIFT,M_MIN,massofscaleR,massofscaleR,M_MIN,ALPHA);
 	}
@@ -663,7 +667,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	      else{
 		density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
 		if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
-		  if ( fabs(ALPHA) > FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
+		  if ( fabs(ALPHA) < FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
 		    FcollSpline(density_over_mean - 1, &(Splined_Fcoll));
 		  }
 		  else{ // we can assume the classic constant ionizing luminosity to halo mass ratio
@@ -934,21 +938,25 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
     }
 
 
+      fprintf(stderr, error_message);
+      fprintf(LOG, error_message);
       fftwf_free(xH);
+      fftwf_free(xH_m);
+      fftwf_free(z_re);
+      fftwf_free(Gamma12);
       fclose(LOG);
       fftwf_free(deltax_unfiltered);
       fftwf_free(deltax_filtered);
       fftwf_free(M_coll_unfiltered);
       fftwf_free(M_coll_filtered);
       fftwf_cleanup_threads();
+      if (F){ fclose(F);}
       free_ps();
-      if (INHOMO_RECO) { free_MHR();}
-      fftwf_free(N_rec_unfiltered);
-      fftwf_free(N_rec_filtered);
-      fftwf_free(z_re);
-      fftwf_free(Gamma12);
+      free_MHR();
       fftwf_free(xe_filtered);
       fftwf_free(xe_unfiltered);
+      fftwf_free(N_rec_unfiltered);
+      fftwf_free(N_rec_filtered);
       destroy_21cmMC_arrays();
       
       return 0;

@@ -79,7 +79,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  /**********  BEGIN INITIALIZATION   **************************************/
  //New in v1.3(?)
  // Maybee need to add t_star.
- if (HII_EFF_FACTOR_SFR == 1) {
+ if (HII_EFF_FACTOR_SFR != 0) {
    printf("Note 'F_STAR10' and 'ALPHA_STAR' are free parameters. \n");
    printf("     These free parameters MUST be the same in 'find_HII_bubbles.c'. \n");
    if (argc  == 7) {
@@ -574,6 +574,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	  fcoll_R += sigmaparam_FgtrM_bias(zpp, sigma_Tmin[R_ct], 
 					 delNL0[R_ct][box_ct], sigma_atR[R_ct]);
     }
+	  }
       fcoll_R /= (double) sample_ct;
 	  // New in v1.3(?): check how to use M_MIN
 	  if (HII_EFF_FACTOR_SFR !=0) {

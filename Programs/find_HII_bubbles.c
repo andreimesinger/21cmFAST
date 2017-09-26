@@ -42,6 +42,13 @@ void init_21cmMC_arrays() { // defined in Cosmo_c_files/ps.c
     
     xi_high = calloc((NGLhigh+1),sizeof(float));
     wi_high = calloc((NGLhigh+1),sizeof(float));
+
+    Overdense_spline_SFR = calloc(NSFR_high,sizeof(float)); // New in v1.4
+    Fcoll_spline_SFR = calloc(NSFR_high,sizeof(float));
+    second_derivs_SFR = calloc(NSFR_high,sizeof(float));
+    xi_SFR = calloc((NGL_SFR+1),sizeof(float));
+    wi_SFR = calloc((NGL_SFR+1),sizeof(float));
+
     
 }
 
@@ -67,6 +74,12 @@ void destroy_21cmMC_arrays() {
     free(dSigmadm_Spline);
     free(second_derivs_sigma);
     free(second_derivs_dsigma);
+
+    free(Overdense_spline_SFR); // New in v1.4
+    free(Fcoll_spline_SFR);
+    free(second_derivs_SFR);
+    free(xi_SFR);
+    free(wi_SFR);
 }
 
 
@@ -81,7 +94,6 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
 
   if (INHOMO_RECO)
     min_argc++;
-
   
   // check if user wants to specify the multi threading
   if ((argc > min_argc) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
@@ -139,6 +151,74 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
   return 1;
 }
 
+int parse_arguments_SFR(int argc, char ** argv, int * num_th, int * arg_offset, float * F_STAR10,
+		    float * ALPHA_STAR, float * F_ESC10, float * ALPHA_ESC, float * M_TURN, float *MFP,
+			float * REDSHIFT, float * PREV_REDSHIFT){
+			// TEST: DELETE TVIR_MIN after test that compare this new version with default one.
+
+  int min_argc = 2;
+
+  if (INHOMO_RECO)
+    min_argc++;
+  
+  // check if user wants to specify the multi threading
+  if ((argc > min_argc) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
+    // user specified num proc
+    *num_th = atoi(argv[2]);
+    *arg_offset = 2;
+  }
+  else{
+    *num_th = NUMCORES;
+    *arg_offset = 0;
+  }
+
+  // parse the remaining arguments
+  if (argc == (*arg_offset + min_argc+5)){
+    *F_STAR10 = atof(argv[*arg_offset+min_argc]);
+    *ALPHA_STAR = atof(argv[*arg_offset+min_argc+1]);
+    *F_ESC10 = atof(argv[*arg_offset+min_argc+2]);
+    *ALPHA_ESC = atof(argv[*arg_offset+min_argc+3]);
+    *M_TURN = pow(10.,atof(argv[*arg_offset+min_argc+4])); // Input value log10(M_TURN)
+    *MFP = R_BUBBLE_MAX;
+    //*TVIR_MIN = ION_Tvir_MIN;
+  }
+  else if (argc == (*arg_offset + min_argc+6)){ // just use parameter efficiency
+    *F_STAR10 = atof(argv[*arg_offset+min_argc]);
+    *ALPHA_STAR = atof(argv[*arg_offset+min_argc+1]);
+    *F_ESC10 = atof(argv[*arg_offset+min_argc+2]);
+    *ALPHA_ESC = atof(argv[*arg_offset+min_argc+3]);
+    *M_TURN = pow(10.,atof(argv[*arg_offset+min_argc+4])); // Input value log10(M_TURN)
+    *MFP = atof(argv[*arg_offset+min_argc+5]);
+    //*TVIR_MIN = ION_Tvir_MIN;
+  }
+  else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
+    *F_STAR10 = STELLAR_BARYON_FRAC;         // We need to set the parameters with some standard values later on.
+    *ALPHA_STAR = STELLAR_BARYON_PL;
+    *F_ESC10 = ESC_FRAC;
+    *ALPHA_ESC = ESC_PL;
+    *M_TURN = pow(10.,MASS_TURNOVER); // Input value log10(M_TURN)
+    *MFP = R_BUBBLE_MAX;
+    //*TVIR_MIN = ION_Tvir_MIN;
+  }
+  else{ return 0;} // format is not allowed
+  
+
+  *REDSHIFT = atof(argv[*arg_offset+1]);
+  if (INHOMO_RECO){
+    *PREV_REDSHIFT = atof(argv[*arg_offset+2]);
+    if (*PREV_REDSHIFT <= *REDSHIFT ){
+      fprintf(stderr, "find_HII_bubbles: previous redshift must be larger than current redshift!!!\nAborting...\n");
+      return -1;
+    }
+  }
+  else
+    *PREV_REDSHIFT = *REDSHIFT+0.2; // dummy variable which is not used
+
+   fprintf(stderr, "find_HII_bubbles: command line parameters are as follows\nnum threads=%i, f_star10=%g, alpha_satr=%g, f_esc10=%g, alpha_esc=%g, Mturn=%g, mfp=%g Mpc, z=%g, prev z=%g\n",
+	  *num_th, *F_STAR10, *ALPHA_STAR, *F_ESC10, *ALPHA_ESC, *M_TURN, *MFP, *REDSHIFT, *PREV_REDSHIFT);
+
+  return 1;
+}
 
 
 /********** MAIN PROGRAM **********/
@@ -150,7 +230,7 @@ int main(int argc, char ** argv){
   int x,y,z, N_min_cell, LAST_FILTER_STEP, num_th, arg_offset, i,j,k;
   unsigned long long ct, ion_ct, sample_ct;
   float f_coll_crit, pixel_volume,  density_over_mean, erfc_num, erfc_denom, erfc_denom_cell, res_xH, Splined_Fcoll;
-  float *xH=NULL, *xH_m=NULL, TVIR_MIN, MFP, xHI_from_xrays, std_xrays, *z_re=NULL, *Gamma12=NULL, *mfp=NULL;
+  float *xH=NULL, TVIR_MIN, MFP, xHI_from_xrays, std_xrays, *z_re=NULL, *Gamma12=NULL, *mfp=NULL;
   fftwf_complex *M_coll_unfiltered=NULL, *M_coll_filtered=NULL, *deltax_unfiltered=NULL, *deltax_filtered=NULL, *xe_unfiltered=NULL, *xe_filtered=NULL;
   fftwf_complex *N_rec_unfiltered=NULL, *N_rec_filtered=NULL;
   fftwf_plan plan;
@@ -161,6 +241,7 @@ int main(int argc, char ** argv){
   double t_ast, dfcolldt, Gamma_R_prefactor, rec;
   float nua, dnua, temparg, Gamma_R, z_eff;
   float ALPHA =  EFF_FACTOR_PL_INDEX;
+  float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN; //New in v1.4
   float growth_factor_dz, global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
   *error_message = '\0';
@@ -168,17 +249,41 @@ int main(int argc, char ** argv){
   double aveR = 0;
   unsigned long long Rct = 0;
 
+  /* TEST computing time */
+  double test1,test2,ratio1,ratio2;
+  time_t start, start2, end2, end;
+  double time_taken;
+  start = clock();
     
   /*************************************************************************************/  
   /******** BEGIN INITIALIZATION ********/
   /*************************************************************************************/  
+  
   // PARSE COMMAND LINE ARGUMENTS
-  if ( !parse_arguments(argc, argv, &num_th, &arg_offset, &ION_EFF_FACTOR, &TVIR_MIN, &MFP, &ALPHA, &REDSHIFT, &PREV_REDSHIFT)) {
-    fprintf(stderr, "USAGE: find_HII_bubbles <redshift> [<previous redshift>] \n \
+  if (HII_EFF_FACTOR_SFR != 0){
+    if( !parse_arguments_SFR(argc, argv, &num_th, &arg_offset, &F_STAR10, &ALPHA_STAR, &F_ESC10,
+		&ALPHA_ESC, &M_TURN, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
+	  fprintf(stderr, "find_HII_bubbles <redshift> [<previous redshift>] \n \
+	  [<stellar baryon farction: f_star10> <stellar baryon power-law: alpha_star> <escape fraction: f_esc10> <escape faction power-law alpha esc> <M_drop>] [<TVIR_MIN>] [<MFP>] \nAborting...\n \
+	  Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\nAborting...\n");
+	  return -1;
+	}
+  }
+  else{
+    if ( !parse_arguments(argc, argv, &num_th, &arg_offset, &ION_EFF_FACTOR, &TVIR_MIN, &MFP, &ALPHA, &REDSHIFT, &PREV_REDSHIFT)) {
+      fprintf(stderr, "USAGE: find_HII_bubbles <redshift> [<previous redshift>] \n \
 [<ionization efficiency factor zeta>] [<Tvir_min> <ionizing mfp in ionized IGM> <Alpha, power law for ionization efficiency>]\n \
 Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\nAborting...\n");
-    return -1;
+      return -1;
+    }
   }
+  // New in v1.4: Check initial condition whether you use the Power-law and the New parametrization at the same time
+  // This option will be deleted since this parametrization replace the Power-law.
+  if (ALPHA != 0 && HII_EFF_FACTOR_SFR != 0){
+          fprintf(stderr, "You use the Power-law parameterization and New parameterization at the same time.\n");
+          fprintf(stderr, "   Check your setting for 'EFF_FACTOR_PL_INDEX' and 'HII_EFF_FACTOR_SFR' in ANAL_PARAMS.H \n");
+          return -1;
+  }    
 
   ZSTEP = PREV_REDSHIFT - REDSHIFT;
   fabs_dtdz = fabs(dtdz(REDSHIFT));
@@ -187,8 +292,12 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
   growth_factor_dz = dicke(REDSHIFT-dz);
   pixel_volume = pow(BOX_LEN/(float)HII_DIM, 3);
   pixel_mass = RtoM(L_FACTOR*BOX_LEN/(float)HII_DIM);
-  f_coll_crit = 1/ION_EFF_FACTOR;
+  //f_coll_crit = 1/ION_EFF_FACTOR; //New in v1.4: Do not need this parameter in this version.
   cell_length_factor = L_FACTOR;
+  if(HII_EFF_FACTOR_SFR!=0){ // New in v1.4
+      //f_coll_crit = 1./Ion_Eff_Factor_SFR(STELLAR_BARYON_FRAC,ESC_FRAC);
+      ION_EFF_FACTOR = Ion_Eff_Factor_SFR(STELLAR_BARYON_FRAC,ESC_FRAC);
+  }
   // this parameter choice is sensitive to noise on the cell size, at least for the typical
   // cell sizes in RT simulations.  it probably doesn't matter for larger cell sizes.
   if (USE_HALO_FIELD && (FIND_BUBBLE_ALGORITHM==2)
@@ -196,11 +305,8 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
     cell_length_factor = 1;
   }
   init_ps();
-  printf("init_ps end\n");
-  //init_MHR();
-  printf("init_MHR end\n");
+  if (INHOMO_RECO) {  init_MHR();}
   init_21cmMC_arrays();
-  printf("init_21cmMC_arrays end\n");
 
    
   // SET THE MINIMUM HALO MASS HOSTING SOURCES
@@ -220,6 +326,14 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
   else if (TVIR_MIN < 0){ // use the mass
     M_MIN = ION_M_MIN;
   }
+  /* New in v1.4
+    We arbitrarily define the minimum halo mass, M_TURN/50.
+	In the new parametrization, 
+	since the number of ionizing photon decreases exponetially in halo masses less than the turn-over halo mass,
+	this definition saves computing time and satisfies accracy.
+	*/
+  if (HII_EFF_FACTOR_SFR != 0 && M_TURN != 0.) M_MIN = M_TURN/50.; 
+  
   // check for WDM
   if (P_CUTOFF && ( M_MIN < M_J_WDM())){
     fprintf(stderr, "The default Jeans mass of %e Msun is smaller than the scale supressed by the effective pressure of WDM.\n", M_MIN);
@@ -253,37 +367,42 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 
     // allocate memory for the neutral fraction box
     xH = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
-    xH_m = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
-    if (!xH || !xH_m){
+    // xH_m = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
+    if (!xH){
       strcpy(error_message, "find_HII_bubbles.c: Error allocating memory for xH box\nAborting...\n");
       goto CLEANUP;
     }
-    for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){    xH[ct] = xH_m[ct] = 1;  }
+    for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){    xH[ct] = 1;  }
 
 
     // compute the mean collpased fraction at this redshift
-    if(fabs(ALPHA) < FRACT_FLOAT_ERR ){
-      mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
+	if (HII_EFF_FACTOR_SFR == 0){
+      if(fabs(ALPHA) > FRACT_FLOAT_ERR ){ 
+        mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
+      }
+      else {
+        mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
+      }
+	}
+	else { // New in v1.4
+      mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_MIN, M_TURN, ALPHA_STAR, ALPHA_ESC);
     }
-    else {
-      mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
-    }
-
     /**********  CHECK IF WE ARE IN THE DARK AGES ******************************/
     // lets check if we are going to bother with computing the inhmogeneous field at all...
-    if ((mean_f_coll_st/f_coll_crit < HII_ROUND_ERR)){ // way too small to ionize anything...
+    //if ((mean_f_coll_st/f_coll_crit < HII_ROUND_ERR)){ // way too small to ionize anything...
+    if ((mean_f_coll_st*ION_EFF_FACTOR < HII_ROUND_ERR)){ // way too small to ionize anything...//New in v1.4: Need to be elaborated
       fprintf(stderr, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
                        I will just declare everything to be neutral\n", mean_f_coll_st, f_coll_crit);
       fprintf(LOG, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
                     I will just declare everything to be neutral\n", mean_f_coll_st, f_coll_crit);
 
       if (USE_TS_IN_21CM){ // use the x_e box to set residuals
-	sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc",
+	sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc_default",
 		REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
 	if (!(F = fopen(filename, "rb"))){
 	  fprintf(stderr, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fprintf(LOG, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
-	  fclose(LOG); fftwf_free(xH);  fftwf_free(xH_m); fftwf_cleanup_threads();
+	  fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
 	  free_ps(); destroy_21cmMC_arrays(); return -1;
 	}
 	for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){
@@ -312,16 +431,32 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       global_xH_m = global_xH;
       switch(FIND_BUBBLE_ALGORITHM){
       case 2:
-	if (USE_HALO_FIELD)
-	  sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-	else
-	  sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-	break;
+	  if(HII_EFF_FACTOR_SFR != 0){
+  	    if (USE_HALO_FIELD)
+		  sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+	    else
+		  sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+		}
+		else{
+          if (USE_HALO_FIELD)
+            sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+          else
+            sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+        }
+	    break;
       default:
-	if (USE_HALO_FIELD)
-	  sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-	else
-	  sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  if(HII_EFF_FACTOR_SFR != 0){
+	    if (USE_HALO_FIELD)
+		  sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+		else
+		  sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+	  }
+	  else{
+        if (USE_HALO_FIELD)
+          sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+        else
+          sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  }
       }
       F = fopen(filename, "wb");
       fprintf(LOG, "Neutral fraction is %f\nNow writting xH box at %s\n", global_xH, filename);
@@ -330,7 +465,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	fprintf(stderr, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
 	fprintf(LOG, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
       }
-      free_ps(); fclose(F); fclose(LOG); fftwf_free(xH);  fftwf_free(xH_m);  fftwf_cleanup_threads();
+      free_ps(); fclose(F); fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
        destroy_21cmMC_arrays(); return (int) (global_xH * 100);
     }
 
@@ -350,7 +485,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       }
 
       // and read-in
-      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc_default", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
       if (!(F = fopen(filename, "rb"))){
 	strcpy(error_message, "find_HII_bubbles.c: Unable to open x_e file at ");
 	strcat(error_message, filename);
@@ -456,7 +591,6 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++)
 	  z_re[ct] = -1.0;
       }
-
       sprintf(filename, "../Boxes/Nrec_z%06.2f_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", PREV_REDSHIFT, HII_FILTER, MFP, HII_DIM, BOX_LEN);
       if (F=fopen(filename, "rb")){ // we had prvious boxes
 	//check if some read error occurs
@@ -522,7 +656,6 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       fprintf(stderr, error_message);
       fprintf(LOG, error_message);
       fftwf_free(xH);
-      fftwf_free(xH_m);
       fftwf_free(z_re);
       fftwf_free(Gamma12);
       fclose(LOG);
@@ -531,9 +664,8 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       fftwf_free(M_coll_unfiltered);
       fftwf_free(M_coll_filtered);
       fftwf_cleanup_threads();
-      if (F){ fclose(F);}
       free_ps();
-      //free_MHR();
+      if (INHOMO_RECO) { free_MHR();}
       fftwf_free(xe_filtered);
       fftwf_free(xe_unfiltered);
       fftwf_free(N_rec_unfiltered);
@@ -650,10 +782,15 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	temparg =  2*(pow(sigma_z0(M_MIN), 2) - pow(sigma_z0(massofscaleR), 2) );
 	erfc_denom = sqrt(temparg);
 	    
-	if( fabs(ALPHA) < FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
+	if( fabs(ALPHA) > FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
 	  initialiseGL_Fcoll(NGLlow,NGLhigh,M_MIN,massofscaleR);
 	  initialiseFcoll_spline(REDSHIFT,M_MIN,massofscaleR,massofscaleR,M_MIN,ALPHA);
 	}
+    if(HII_EFF_FACTOR_SFR!=0) { // New in v1.4
+      initialiseGL_FcollSFR(NGL_SFR,M_MIN,massofscaleR);
+      initialiseFcollSFR_spline(REDSHIFT,M_MIN,massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC);
+    }
+
       
 	for (x=0; x<HII_DIM; x++){
 	  for (y=0; y<HII_DIM; y++){
@@ -667,8 +804,11 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	      else{
 		density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
 		if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
-		  if ( fabs(ALPHA) < FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
+		  if ( fabs(ALPHA) > FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
 		    FcollSpline(density_over_mean - 1, &(Splined_Fcoll));
+		  }
+		  else if (HII_EFF_FACTOR_SFR != 0) { // New in v1.4
+			FcollSpline_SFR(density_over_mean - 1,&(Splined_Fcoll));
 		  }
 		  else{ // we can assume the classic constant ionizing luminosity to halo mass ratio
 		    erfc_num = (Deltac - (density_over_mean-1)) /  growth_factor;
@@ -737,7 +877,8 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	    }
 
 	    // check if fully ionized!
-	    if ( (f_coll > (xHI_from_xrays/ION_EFF_FACTOR)*(1.0+rec)) ){ //IONIZED!!
+	    //if ( (f_coll > (xHI_from_xrays/ION_EFF_FACTOR)*(1.0+rec)) ){ //IONIZED!!
+	    if ( (f_coll*ION_EFF_FACTOR > xHI_from_xrays*(1.0+rec)) ){ //IONIZED!! //New in v1.4
 	    
 	      // if this is the first crossing of the ionization barrier for this cell (largest R), record the gamma
 	      // this assumes photon-starved growth of HII regions...  breaks down post EoR
@@ -909,16 +1050,32 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
     // print out the xH box
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
-      if (USE_HALO_FIELD)
-	sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-      else
-	sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  if (HII_EFF_FACTOR_SFR != 0) {
+        if (USE_HALO_FIELD)
+		  sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+        else
+		  sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+	  }
+	  else {
+        if (USE_HALO_FIELD)
+        sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+        else
+        sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+      }
       break;
     default:
-      if (USE_HALO_FIELD)
-	      sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-            else
-	      sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  if (HII_EFF_FACTOR_SFR != 0) {
+        if (USE_HALO_FIELD)
+		  sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+        else
+		  sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+	  }
+	  else {
+        if (USE_HALO_FIELD)
+        sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+        else
+        sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  }
     }
     if (!(F = fopen(filename, "wb"))){
         fprintf(stderr, "find_HII_bubbles: ERROR: unable to open file %s for writting!\n", filename);
@@ -936,9 +1093,16 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
         }
         fclose(F);
     }
+  
+    /* TEST computing time */
+    end = clock();
+    time_taken = (end - start)/(CLOCKS_PER_SEC);
+    printf("\n");
+    printf("time taken = %1.6e sec \n", time_taken);
+    printf("\n");
 
 
-      fprintf(stderr, error_message);
+	  fprintf(stderr, error_message);
       fprintf(LOG, error_message);
       fftwf_free(xH);
       fftwf_free(xH_m);

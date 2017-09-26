@@ -3,54 +3,36 @@
 
 
 /******** BEGIN USER CHANGABLE DEFINITIONS   **********/
+
+/*
+  GALAXY PARAMETERS
+  NEW in v1.4:
+
+   The ionizing efficiency zeta is allowed to scale with the halo mass:
+  \zeta = N_{\gammaUV} x f_{esc} x f_{\ast}
+
+  where:
+  f_{\ast} = STELLAR_BARYON_FRAC x (M_{halo}/10^10 M_{sol})^STELLAR_BARYON_PL
+  f_{esc} = ESC_FRAC x (M_{halo}/10^10 M_{sol})^ESC_PL
+
+  The number of halos hosting active galaxies (the duty cycle) is assumed to
+  exponentially decrease below 10^LOG_MASS_TURNOVER Msun, : fduty \propto e^(- M_TURNOUVER / M)
+
+  See eq. (?) in Park et al.... 
+*/
+#define N_GAMMA_UV (float) (5000) // number of ionizing photons per stellar baryon
+#define STELLAR_BARYON_FRAC (double) (0.03) // defined for 10^10 Msun halos
+#define STELLAR_BARYON_PL (double) (0.4) //power law index w/ halo mass
+#define ESC_FRAC (double) (0.1) // defined for 10^10 Msun halos
+#define ESC_PL (double) (-0.4) //power law index w/ halo mass
+#define LOG_MASS_TURNOVER (double) (9.) // threshold in log10 Msun of star formation. 
+
+
 /* 
-   Minimum halo mass counted as contributing ionizing photons in the bubble code.
-   
+   v1.2 and below:
+   halo mass independent galaxy efficiency zeta
 */
-#define ION_M_MIN (double) (-1)
-/* OR define it as a redshift-dependent halo virial temperature.. 
- NOTE: SET THE ONE YOU AREN'T USING TO A NEGATIVE VALUE.
- NOTE: If you are using the halo finder and studying redshift evolution over a 
-       small redshift interval, it is probably best to use the ION_M_MIN option,
-       since the discretization of the halo mass by the halo finder might lead
-       to redshift discontinuities.
-*/
-#define ION_Tvir_MIN (double) (3e4)
-
-
-/*
-  HII efficiency factor, commonly refered to as \zeta: i.e. number of ionizing photons escaping into the IGM
-  per baryon.
-
-  NEW in v1.2:  The ionizing efficiency is allowed to have a power law dependence on halo mass:
-  \zeta = HII_EFF_FACTOR * (M_halo / ION_M_MIN)^EFF_FACTOR_PL_INDEX
-  see Nion_note.pdf in the root folder.
-*/
-#define HII_EFF_FACTOR (float) (20)
-
-
-/*
-  NEW IN V1.2: power law index for the ionizing efficiency scaling with halo mass:
-  \zeta = HII_EFF_FACTOR * (M_halo / ION_M_MIN)^EFF_FACTOR_PL_INDEX
-
-  The traditional constant mass to ionizing light ratio (as is assumed in previous versions,
-  is obtained by setting EFF_FACTOR_PL_INDEX to zero.
- */
-#define EFF_FACTOR_PL_INDEX (float) (0)
-
-/*
-  NEW IN V1.3(?): If HII_EFF_FACTOR_SFR is not zero, use the new parametrization:
-  \zeta = N_{\gamma} x f_{esc} x f_{\ast} x f_{b}
-  f_{\ast} = f_{ast,10}(M_{halo}/10^10 M_{sol})^alpha_{\ast}
-  f_{esc} = f_{esc,10}(M_{halo}/10^10 M_{sol})^alpha_{esc}
-*/
-#define HII_EFF_FACTOR_SFR (int) (1)
-
-#define STELLAR_BARYON_FRAC (double) (0.05)
-#define STELLAR_BARYON_PL (double) (0)
-#define ESC_FRAC (double) (0.1)
-#define ESC_PL (double) (0)
-#define MASS_TURNOVER (double) (9.)
+#define HII_EFF_FACTOR (float) ( N_GAMMA_UV * STELLAR_BARYON_FRAC * ESC_FRAC) 
 
 /*
   Maximum horizon for ionizing photons, in comoving Mpc.
@@ -63,7 +45,7 @@
   physically corresponding to the mfp at the end of the EoR.
   Results during the EoR are insensitive to this choice.
 */
-#define R_BUBBLE_MAX (float) (20)
+#define R_BUBBLE_MAX (float) (50)
 
 /*
   INHOMO_RECO = 1 compute inhomogeneous recombinations, ala Sobacchi & Mesinger (2014).

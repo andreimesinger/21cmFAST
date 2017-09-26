@@ -42,7 +42,7 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
 /*
   Minimum virial temperature (in K) of halos hosting X-ray sources responsible for heating the IGM
 */
-#define X_RAY_Tvir_MIN (double) (ION_Tvir_MIN)
+#define X_RAY_Tvir_MIN (double) (1e4) // WILL BE REMOVED IN v1.4
 
 
 /*

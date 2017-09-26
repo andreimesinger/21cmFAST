@@ -193,20 +193,9 @@ double get_M_min_ion(float z);
 /* Returns the minimum source mass for ionizing sources, according to user specifications */
 double get_M_min_ion(float z){
   double MMIN;
-  if (ION_M_MIN < 0){ // use the virial temperature for Mmin
-    if (ION_Tvir_MIN < 9.99999e3) // neutral IGM
-      MMIN = TtoM(z, ION_Tvir_MIN, 1.22);
-    else // ionized IGM
-      MMIN = TtoM(z, ION_Tvir_MIN, 0.6);
-  }
-  else if (ION_Tvir_MIN < 0){ // use the mass
-    MMIN = ION_M_MIN;
-  }
-  else{
-    fprintf(stderr, "You have to \"turn-off\" either the ION_M_MIN or \
-                     the ION_Tvir_MIN option in ANAL_PARAMS.H\nAborting...\n");
-    return -1;
-  }
+
+  MMIN = pow(10, LOG_MASS_TURNOVER);
+
   // check for WDM
   if (P_CUTOFF && ( MMIN < M_J_WDM()))
     MMIN = M_J_WDM();
@@ -1403,7 +1392,7 @@ void FcollSpline(float Overdensity, float *splined_value)
 double Ion_Eff_Factor_SFR(double f_star10, double f_esc10){
 // Ionizing efficiency factor using the new parametrization
 
-    double ionizing_photon_num = 4000., baryon_frac = 1.;
+    double ionizing_photon_num = N_GAMMA_UV, baryon_frac = 1.;
 
     return ionizing_photon_num * baryon_frac * f_star10 * f_esc10;
 }

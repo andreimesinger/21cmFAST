@@ -1105,7 +1105,6 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	  fprintf(stderr, error_message);
       fprintf(LOG, error_message);
       fftwf_free(xH);
-      fftwf_free(xH_m);
       fftwf_free(z_re);
       fftwf_free(Gamma12);
       fclose(LOG);

@@ -44,13 +44,13 @@
   f_{\ast} = f_{ast,10}(M_{halo}/10^10 M_{sol})^alpha_{\ast}
   f_{esc} = f_{esc,10}(M_{halo}/10^10 M_{sol})^alpha_{esc}
 */
-#define HII_EFF_FACTOR_SFR (int) (0)
+#define HII_EFF_FACTOR_SFR (int) (1)
 
 #define STELLAR_BARYON_FRAC (double) (0.05)
 #define STELLAR_BARYON_PL (double) (0)
 #define ESC_FRAC (double) (0.1)
 #define ESC_PL (double) (0)
-#define MASS_DROP (double) (1.)
+#define MASS_TURNOVER (double) (9.)
 
 /*
   Maximum horizon for ionizing photons, in comoving Mpc.

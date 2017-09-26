@@ -73,8 +73,8 @@ Filter choice used for smoothing the linear density field to obtain the collapse
 #define R_XLy_MAX (float) (500)
 
 /*
-  Number of spherical anulli used to compute df_coll/dz' in the simulation box.
-  The spherical annulii are evenly spaced in log R, ranging from the cell size to the box size.
+  Number of spherical annuli used to compute df_coll/dz' in the simulation box.
+  The spherical annuli are evenly spaced in log R, ranging from the cell size to the box size.
   Ts.c will create this many boxes of size HII_DIM, so be wary of memory usage if values are high.
 */
 #define NUM_FILTER_STEPS_FOR_Ts (int) (40)

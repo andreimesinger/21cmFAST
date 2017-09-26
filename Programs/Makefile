@@ -13,7 +13,7 @@ PARAMETER_DIR = ../Parameter_files
 
 # non-project dependencies
 COSMO_FILES = 	${PARAMETER_DIR}/COSMOLOGY.H \
-	${COSMO_DIR}/ps_v2.c \
+	${COSMO_DIR}/ps.c \
 	${COSMO_DIR}/cosmo_progs.c \
 	${COSMO_DIR}/misc.c \
 	${COSMO_DIR}/recombinations.c \
@@ -133,11 +133,11 @@ delta_T:	delta_T.c \
 	${CC} ${CPPFLAGS} -o delta_T delta_T.c ${LDFLAGS}
 
 
-find_HII_bubbles:	find_HII_bubbles_v2.c \
+find_HII_bubbles:	find_HII_bubbles.c \
 	bubble_helper_progs.c \
 	${COSMO_FILES}
 
-	${CC} ${CPPFLAGS} -o find_HII_bubbles find_HII_bubbles_v2.c ${LDFLAGS}
+	${CC} ${CPPFLAGS} -o find_HII_bubbles find_HII_bubbles.c ${LDFLAGS}
 
 
 find_halos:	find_halos.c \

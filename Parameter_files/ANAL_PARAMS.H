@@ -3,6 +3,24 @@
 
 
 /******** BEGIN USER CHANGABLE DEFINITIONS   **********/
+/* I restore two parameters, ION_M_MIN and ION_Tvir_MIN.
+   ION_M_MIN is used to run halo finding
+	and ION_Tvir_MIN is used to set the minimum halo mass in the constant ionizing efficieny factor.
+*/
+/* 
+   Minimum halo mass counted as contributing ionizing photons in the bubble code.
+   
+*/
+#define ION_M_MIN (double) (-1)
+/* OR define it as a redshift-dependent halo virial temperature.. 
+ NOTE: SET THE ONE YOU AREN'T USING TO A NEGATIVE VALUE.
+ NOTE: If you are using the halo finder and studying redshift evolution over a 
+       small redshift interval, it is probably best to use the ION_M_MIN option,
+       since the discretization of the halo mass by the halo finder might lead
+       to redshift discontinuities.
+*/
+#define ION_Tvir_MIN (double) (3e4)
+
 
 /*
   GALAXY PARAMETERS

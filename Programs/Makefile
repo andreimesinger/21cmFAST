@@ -37,7 +37,7 @@ OBJ_FILES = init \
   drive_xHIscroll \
   kSZ_power \
   find_halos \
-	update_halo_pos
+  update_halo_pos \
 
 
 #########################################################################

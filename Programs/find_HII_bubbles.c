@@ -182,6 +182,7 @@ int main(int argc, char ** argv){
   float growth_factor_dz, global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
   *error_message = '\0';
+
   int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
   
   double aveR = 0;
@@ -197,8 +198,8 @@ int main(int argc, char ** argv){
   /******** BEGIN INITIALIZATION ********/
   /*************************************************************************************/  
 
-  if ((fabs(STELLAR_BARYON_PL) > FRACT_FLOAT_ERR) ||
-      (fabs(STELLAR_BARYON_PL) > FRACT_FLOAT_ERR) ){ // use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
+  if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR) ||
+      (fabs(ALPHA_ESC) > FRACT_FLOAT_ERR) ){ // use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
     HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
   }
     
@@ -279,7 +280,7 @@ int main(int argc, char ** argv){
 
   // compute the mean collpased fraction at this redshift
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
-    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_MIN, M_TURN, ALPHA_STAR, ALPHA_ESC);
+    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_MIN, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10);
   }
   else { 
     mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
@@ -681,7 +682,7 @@ int main(int argc, char ** argv){
 	    
 	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
 	  initialiseGL_FcollSFR(NGL_SFR,M_MIN,massofscaleR);
-	  initialiseFcollSFR_spline(REDSHIFT,M_MIN,massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC);
+	  initialiseFcollSFR_spline(REDSHIFT,M_MIN,massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10);
 	}
 
       

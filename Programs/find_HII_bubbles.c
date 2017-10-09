@@ -178,7 +178,7 @@ int main(int argc, char ** argv){
   i=0;
   double t_ast, dfcolldt, Gamma_R_prefactor, rec;
   float nua, dnua, temparg, Gamma_R, z_eff;
-  float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN; //New in v1.4
+  float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, Mlim_Fstar, Mlim_Fesc; //New in v1.4
   float growth_factor_dz, global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
   *error_message = '\0';
@@ -198,11 +198,6 @@ int main(int argc, char ** argv){
   /******** BEGIN INITIALIZATION ********/
   /*************************************************************************************/  
 
-  if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR) ||
-      (fabs(ALPHA_ESC) > FRACT_FLOAT_ERR) ){ // use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
-    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
-  }
-    
   // PARSE COMMAND LINE ARGUMENTS
   if( !parse_arguments(argc, argv, &num_th, &arg_offset, &F_STAR10, &ALPHA_STAR, &F_ESC10,
 		       &ALPHA_ESC, &M_TURN, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
@@ -213,6 +208,10 @@ int main(int argc, char ** argv){
 	  return -1;
   }
 
+  if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR) ||
+      (fabs(ALPHA_ESC) > FRACT_FLOAT_ERR) ){ // use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
+    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
+  }
 
   ZSTEP = PREV_REDSHIFT - REDSHIFT;
   fabs_dtdz = fabs(dtdz(REDSHIFT));
@@ -235,9 +234,13 @@ int main(int argc, char ** argv){
   M_MIN = pow(10, LOG_MASS_TURNOVER);
   // New in v1.4.  We have an exponential decrease of the duty cycle below M_TURN,
   // so we only need to integrate down to a little bellow it
-  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY)
+  printf("\n Here \n");
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){
     M_MIN = M_TURN/50.; 
-  
+	Mlim_Fstar = Mass_limit_bisection(M_MIN,ALPHA_STAR,F_STAR10);
+	Mlim_Fesc = Mass_limit_bisection(M_MIN,ALPHA_ESC,F_ESC10);
+  }  
+  exit(0);
   // check for WDM
   if (P_CUTOFF && ( M_MIN < M_J_WDM())){
     fprintf(stderr, "The default Jeans mass of %e Msun is smaller than the scale supressed by the effective pressure of WDM.\n", M_MIN);
@@ -280,7 +283,7 @@ int main(int argc, char ** argv){
 
   // compute the mean collpased fraction at this redshift
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
-    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_MIN, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10);
+    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_MIN, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
   }
   else { 
     mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
@@ -682,7 +685,7 @@ int main(int argc, char ** argv){
 	    
 	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
 	  initialiseGL_FcollSFR(NGL_SFR,M_MIN,massofscaleR);
-	  initialiseFcollSFR_spline(REDSHIFT,M_MIN,massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10);
+	  initialiseFcollSFR_spline(REDSHIFT,M_MIN,massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
 
       

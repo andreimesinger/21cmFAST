@@ -9,6 +9,9 @@
 #define KAPPA_10_NPTS (int) 27
 #define KAPPA_10_elec_NPTS (int) 20
 #define KAPPA_10_pH_NPTS (int) 17
+/* New in v1.4: Number of interpolation points for the interpolation table for z'' 
+				This is the same parameter in 21CMMC */
+#define zpp_interp_points (int) (400) 
 
 /* Define some global variables; yeah i know it isn't "good practice" but doesn't matter */
 double zpp_edge[NUM_FILTER_STEPS_FOR_Ts], sigma_atR[NUM_FILTER_STEPS_FOR_Ts], sigma_Tmin[NUM_FILTER_STEPS_FOR_Ts], ST_over_PS[NUM_FILTER_STEPS_FOR_Ts], sum_lyn[NUM_FILTER_STEPS_FOR_Ts], R_values[NUM_FILTER_STEPS_FOR_Ts];
@@ -18,7 +21,8 @@ double growth_factor_zp, dgrowth_factor_dzp, PS_ION_EFF;
 int NO_LIGHT;
 float M_MIN_at_z, M_MIN_at_zp;
 int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY; // New in v1.4
-float F_STAR10,ALPHA_STAR,M_TURN,T_AST,M_MIN,Splined_Fcoll; // New in v1.4
+float F_STAR10,ALPHA_STAR,M_TURN,T_AST,Mlim_Fstar,M_MIN,Splined_Fcoll,Splined_Fcollz_mean; // New in v1.4
+//double zpp_table[NUM_FILTER_STEPS_FOR_Ts]; // New in v1.4
  /* New in v1.4: This is for test to find Mmin which is the same with the original one. 
     If the code works, you don't need this parameter.
  */
@@ -295,6 +299,7 @@ double spectral_emissivity(double nu_norm, int flag)
  ************************** IGM Evolution ***************************
   This function creates the d/dz' integrands
 *********************************************************************/
+// New in v1.4. additional input parameter "F_STAR10"
 void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[], 
 	       double freq_int_ion[], double freq_int_lya[], 
 	       int COMPUTE_Ts, double y[], double deriv[], float M_TURN, float ALPHA_STAR, float T_AST){
@@ -340,7 +345,7 @@ float M_MIN_WDM =  M_J_WDM();
  	  mu_for_Ts = 0.6;
       initialiseSplinedSigmaM(FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),1e16);
 	  initialiseGL_FcollSFR(NGL_SFR,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),RtoM(R_values[zpp_ct]));
-	  initialiseFcollSFR_spline(zpp,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),RtoM(R_values[zpp_ct]),M_TURN,ALPHA_STAR,0,F_STAR10,1.);
+	  initialiseFcollSFR_spline(zpp,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),RtoM(R_values[zpp_ct]),M_TURN,ALPHA_STAR,0,F_STAR10,1.,Mlim_Fstar,0.);
 	  //initialiseGL_FcollSFR(NGL_SFR, M_MIN, RtoM(R_values[zpp_ct]));
 	  //initialiseFcollSFR_spline(zpp, M_MIN,RtoM(R_values[zpp_ct]),M_TURN,ALPHA_STAR,0,F_STAR10,1.);
     }
@@ -376,7 +381,7 @@ float M_MIN_WDM =  M_J_WDM();
     //dstarlya_dt *= F_STAR10 * C * N_b0 / FOURPI;
 	//else
 	// ********************************************
-	// This part sould be modified.
+	// This part sould be modified to use F_STAR10!!!!!!!!!!!!!!
     dstarlya_dt *= F_STAR * C * N_b0 / FOURPI;
 	// ********************************************
 
@@ -587,6 +592,7 @@ typedef struct{
 double tauX_integrand(double zhat, void *params){
   double n, drpropdz, nuhat, HI_filling_factor_zhat, sigma_tilde, fcoll;
   tauX_params *p = (tauX_params *) params;
+  float Splined_Fcollz_mean; // New in v1.4: compute function FgtrM_st_SFR using interpolation.
   int cnt; //TEST
 
   drpropdz = C * dtdz(zhat);
@@ -596,7 +602,9 @@ double tauX_integrand(double zhat, void *params){
   cnt = 0; //TEST
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
     //fcoll = FgtrM_st_SFR(zhat, M_TURN/50, p->M_TURN, p->ALPHA_STAR, 0., p->F_STAR10, 1.);
-    fcoll = FgtrM_st_SFR(zhat, get_M_min_ion(zhat), p->M_TURN, p->ALPHA_STAR, 0., p->F_STAR10, 1.);
+    //fcoll = FgtrM_st_SFR(zhat, get_M_min_ion(zhat), p->M_TURN, p->ALPHA_STAR, 0., p->F_STAR10, 1.);
+	FgtrM_st_SFR_z(zhat,&(Splined_Fcollz_mean));
+	fcoll = Splined_Fcollz_mean;
   }
   else {
   fcoll = FgtrM(zhat, get_M_min_ion(zhat));
@@ -619,6 +627,7 @@ double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_fact
        gsl_integration_workspace * w 
 	 = gsl_integration_workspace_alloc (1000);
        tauX_params p;
+  float Splined_Fcollz_mean; // New in v1.4: compute function FgtrM_st_SFR using interpolation.
 
        /*
        if (DEBUG_ON)
@@ -633,19 +642,21 @@ double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_fact
        p.x_e = x_e;
        // effective efficiency for the PS (not ST) mass function; quicker to compute...
        if (HI_filling_factor_zp > FRACT_FLOAT_ERR){
-       // New in v1.4
-       if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
-         //fcoll = FgtrM_st_SFR(zhat, M_TURN/50, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.);
-         fcoll = FgtrM_st_SFR(zp, M_MIN_at_zp, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.);
-       }
-       else {
-	      fcoll = FgtrM(zp, M_MIN_at_zp);
-	   }
-	 p.ion_eff = (1.0 - HI_filling_factor_zp) / fcoll * (1.0 - x_e_ave);
-	 PS_ION_EFF = p.ion_eff;
+         // New in v1.4
+         if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
+           //fcoll = FgtrM_st_SFR(zhat, M_TURN/50, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.);
+           //fcoll = FgtrM_st_SFR(zp, M_MIN_at_zp, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.);
+		   FgtrM_st_SFR_z(zp,&(Splined_Fcollz_mean));
+		   fcoll = Splined_Fcollz_mean;
+         }
+         else {
+	       fcoll = FgtrM(zp, M_MIN_at_zp);
+	     }
+	     p.ion_eff = (1.0 - HI_filling_factor_zp) / fcoll * (1.0 - x_e_ave);
+	     PS_ION_EFF = p.ion_eff;
        }
        else
-	 p.ion_eff = PS_ION_EFF; // uses the previous one in post reionization regime
+	   p.ion_eff = PS_ION_EFF; // uses the previous one in post reionization regime
 
        F.params = &p;
        gsl_integration_qag (&F, zpp, zp, 0, rel_tol,

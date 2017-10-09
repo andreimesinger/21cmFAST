@@ -19,19 +19,51 @@
 
 // New in v1.4: To calculate follapse fraction for new parametrization
 void init_21cmMC_arrays() { 
+
+	int i,j;
+
     Overdense_spline_SFR = calloc(NSFR_high,sizeof(float)); // New in v1.4
     Fcoll_spline_SFR = calloc(NSFR_high,sizeof(float));
     second_derivs_SFR = calloc(NSFR_high,sizeof(float));
     xi_SFR = calloc((NGL_SFR+1),sizeof(float));
     wi_SFR = calloc((NGL_SFR+1),sizeof(float));
+
+	zpp_table = calloc(NUM_FILTER_STEPS_FOR_Ts, sizeof(float));
+	log10_overdense_low_table = calloc(NSFR_low,sizeof(double));
+	log10_Fcollz_SFR_low_table = (double **)calloc(NUM_FILTER_STEPS_FOR_Ts,sizeof(double *));
+		for(i=0;i<NSFR_low;i++) {
+			log10_Fcollz_SFR_low_table[i] = (double *)calloc(NSFR_low,sizeof(double));
+		}
+	Overdense_high_table = calloc(NSFR_high,sizeof(double));
+	Fcollz_SFR_high_table = (double **)calloc(NUM_FILTER_STEPS_FOR_Ts,sizeof(double *));
+		for(i=0;i<NSFR_high;i++) {
+			Fcollz_SFR_high_table[i] = (double *)calloc(NSFR_high,sizeof(double));
+		}	
 }
 
 void destroy_21cmMC_arrays() {
+
+	int i;
+
     free(Overdense_spline_SFR); // New in v1.4
     free(Fcoll_spline_SFR);
     free(second_derivs_SFR);
     free(xi_SFR);
     free(wi_SFR);
+
+	free(zpp_table);
+	for(i=0;i<NSFR_low;i++) {
+		free(log10_Fcollz_SFR_low_table[i]);
+	}	
+	free(log10_Fcollz_SFR_low_table);
+	free(log10_overdense_low_table);
+
+	for(i=0;i<NSFR_high;i++) {
+		free(Fcollz_SFR_high_table[i]);
+	}	
+	free(Fcollz_SFR_high_table);
+	free(Overdense_high_table);
+
 }
 
 
@@ -48,6 +80,7 @@ int main(int argc, char ** argv){
   unsigned long long ct, sample_ct;
   int R_ct,i,j,k, COMPUTE_Ts, x_e_ct;
   float REDSHIFT, growth_factor_z, R, R_factor, zp, mu_for_Ts, filling_factor_of_HI_zp;
+  float determine_zpp_max, determine_zpp_min,zpp_bin_width; // New in v1.4
   //float F_STAR10,ALPHA_STAR,M_TURN,T_AST,M_MIN,Splined_Fcoll; // New in v1.4
   float *Tk_box, *x_e_box, *Ts, J_star_Lya, dzp, prev_zp, zpp, prev_zpp, prev_R;
   FILE *F, *GLOBAL_EVOL, *OUT;
@@ -67,6 +100,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    Xion_threads[NUMCORES], lower_int_limit;
  float M_MIN_WDM =  M_J_WDM();
  int RESTART = 0;
+ float test1; // TEST parameter : delete this after test
 
 // int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0; // moved to heating_helper_progs.c
 
@@ -82,6 +116,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  //New in v1.4
  HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
  // Have to modify this part !!!!!!!!!!!!!!!!!!!!!
+ // Where this option should be apper.
 
  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
    printf("Note 'F_STAR10', 'ALPHA_STAR' and 'T_AST' are free parameters. \n");
@@ -104,14 +139,18 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      RESTART = 1;
 	 zp = atof(argv[2]);
      F_STAR10 = STELLAR_BARYON_FRAC;
-	 ALPHA_STAR = STELLAR_BARYON_PL;
-	 M_TURN = pow(10.,LOG_MASS_TURNOVER); // Input value log10(M_TURN)
+	 //ALPHA_STAR = STELLAR_BARYON_PL;
+	 ALPHA_STAR = 0.; // TEST
+	 //M_TURN = pow(10.,LOG_MASS_TURNOVER); // Input value log10(M_TURN)
+	 M_TURN = 0.; // TEST
 	 T_AST = t_STAR;
    }
    else if (argc == 2) {
      F_STAR10 = STELLAR_BARYON_FRAC;
-	 ALPHA_STAR = STELLAR_BARYON_PL;
-	 M_TURN = pow(10.,LOG_MASS_TURNOVER); // Input value log10(M_TURN)
+	 //ALPHA_STAR = STELLAR_BARYON_PL;
+	 ALPHA_STAR = 0.; // TEST
+	 //M_TURN = pow(10.,LOG_MASS_TURNOVER); // Input value log10(M_TURN)
+	 M_TURN = 0.; // TEST
 	 T_AST = t_STAR;
    }
    else {
@@ -146,14 +185,17 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  else // ionized IGM
    mu_for_Ts = 0.6;
 
- if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR)) // use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
+ if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR)) {// use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
     HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
+	Mlim_Fstar = Mass_limit_bisection(M_MIN,ALPHA_STAR,F_STAR10);
+ }
  
  //set the minimum ionizing source mass //*** New in v1.4 have to be changed to be as Mturn/50 ?
  /* New in v1.4
     In the new parametrization, the minimum ionizing source mass depends on the turn-over mass scale, M_TURN/50, 
     and is independent of redshift. */
- if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) M_MIN = M_TURN/50.;
+ //if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) M_MIN = M_TURN/50.;
+ if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) M_MIN = get_M_min_ion(REDSHIFT);
  else M_MIN_at_z = get_M_min_ion(REDSHIFT);
   
  // open log file
@@ -506,24 +548,43 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   // main trapezoidal integral over z' (see eq. ? in Mesinger et al. 2009)
   if (!RESTART){
     zp = REDSHIFT*1.0001; //higher for rounding
-    while (zp < Z_HEAT_MAX)
+    while (zp < Z_HEAT_MAX) 
       zp = ((1+zp)*ZPRIME_STEP_FACTOR - 1);
     prev_zp = Z_HEAT_MAX;
   }
   else{
     prev_zp = zp;
   }
-  /* New in v1.4
-    set up interpolation table for computing f_coll(z)
-	
-	*/
-//  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
-//    initialiseFcollSFRz_spline(REDSHIFT, prev_zp, MassTurn, float Alpha_star)
-//  }
+  
   zp = ((1+zp)/ ZPRIME_STEP_FACTOR - 1);
   dzp = zp - prev_zp;
   zp_ct=0;
   COMPUTE_Ts = 0;
+  /* New in v1.4: set up interpolation table for computing f_coll(z,delta) */
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
+    determine_zpp_min = REDSHIFT*0.999;
+
+    for (R_ct=0; R_ct<NUM_FILTER_STEPS_FOR_Ts; R_ct++){
+        if (R_ct==0){
+            prev_zpp = zp;
+            prev_R = 0; 
+        }    
+        else{
+            prev_zpp = zpp_edge[R_ct-1];
+            prev_R = R_values[R_ct-1];
+        }    
+        zpp_edge[R_ct] = prev_zpp - (R_values[R_ct] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
+        zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
+    }    
+    determine_zpp_max = zpp*1.001;
+
+	// initialise interpolation for FgtrM_st_SFR(z)
+    initialise_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
+
+    zpp_bin_width = (determine_zpp_max - determine_zpp_min)/((float)zpp_interp_points-1.0);
+
+  }
+
   while (zp > REDSHIFT){
     // check if we will next compute the spin temperature (i.e. if this is the final zp step)
     if (Ts_verbose || (((1+zp) / ZPRIME_STEP_FACTOR) < (REDSHIFT+1)) )
@@ -532,11 +593,26 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     // check if we are in the really high z regime before the first stars..
 	// New in v1.4 : Check this part should be modified.
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
-      //if (FgtrM_st_SFR(zp,M_MIN,M_TURN,ALPHA_STAR,0.,F_STAR10,1.) < 1e-15 )
-      if (FgtrM_st_SFR(zp,FMAX(TtoM(zp, X_RAY_Tvir_MIN, mu_for_Ts),  M_MIN_WDM),M_TURN,ALPHA_STAR,0.,F_STAR10,1.) < 1e-15 )// Test
+	  FgtrM_st_SFR_z(zp,&(Splined_Fcollz_mean));
+      if ( Splined_Fcollz_mean < 1e-15 )// Test
         NO_LIGHT = 1;
       else
         NO_LIGHT = 0;
+	  //initialise a table to interpolate collapse fractions.
+  	  for (i=0; i < NUM_FILTER_STEPS_FOR_Ts; i++){
+	    if (i==0){
+          prev_zpp = zp; 
+    	  prev_R = 0;
+        }   
+        else{
+    	  prev_zpp = zpp_edge[i-1];
+    	  prev_R = R_values[i-1];
+        }   	
+        zpp_edge[i] = prev_zpp - (R_values[i] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
+        zpp_table[i] = (zpp_edge[i]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
+	    printf("    R_i = %d, zpp = %6.4f\n",i,zpp);
+	  }
+	  initialise_Fcollz_SFR_Conditional_table(NUM_FILTER_STEPS_FOR_Ts, zpp_table, R_values, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
 	}
 	else {
       if (FgtrM(zp, FMAX(TtoM(zp, X_RAY_Tvir_MIN, mu_for_Ts),  M_MIN_WDM)) < 1e-15 )
@@ -555,10 +631,11 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	//***********************************************************************
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
       M_MIN_at_zp = get_M_min_ion(zp); // TEST
-      filling_factor_of_HI_zp = 1 - Ion_Eff_Factor_SFR(F_STAR10, 1.) * FgtrM_st_SFR(zp, M_MIN_at_zp, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.) / (1.0 - x_e_ave); // TEST
+      //filling_factor_of_HI_zp = 1 - Ion_Eff_Factor_SFR(F_STAR10, 1.) * FgtrM_st_SFR(zp, M_MIN_at_zp, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.) / (1.0 - x_e_ave); // TEST
+      filling_factor_of_HI_zp = 1 - Ion_Eff_Factor_SFR(F_STAR10, 1.) * Splined_Fcollz_mean / (1.0 - x_e_ave); // TEST
       //filling_factor_of_HI_zp = 1 - Ion_Eff_Factor_SFR(F_STAR10, 1.) * FgtrM_st_SFR(zp, M_MIN, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.) / (1.0 - x_e_ave);
       fprintf(stderr, "z'=%f, filling factor of HI is %e, without x_e would be %e, time=%06.2f min\n",
-		zp,filling_factor_of_HI_zp,1 - Ion_Eff_Factor_SFR(F_STAR10, 1.) * FgtrM_st_SFR(zp,M_MIN_at_zp,M_TURN,ALPHA_STAR,0.,F_STAR10,1.),(double)clock()/CLOCKS_PER_SEC/60.0); // TEST
+		zp,filling_factor_of_HI_zp,1 - Ion_Eff_Factor_SFR(F_STAR10, 1.) * Splined_Fcollz_mean,(double)clock()/CLOCKS_PER_SEC/60.0); // TEST
 		//zp,filling_factor_of_HI_zp,1 - Ion_Eff_Factor_SFR(F_STAR10, 1.) * FgtrM_st_SFR(zp,M_MIN,M_TURN,ALPHA_STAR,0.,F_STAR10,1.),(double)clock()/CLOCKS_PER_SEC/60.0);
 	}
 	else {
@@ -610,11 +687,14 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	//  for pixels
 	//      for FILTER_STEP
 	//         - here, I have to compute Fcoll
+	printf("\n Start initialise Fcoll_spline Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
       initialiseSplinedSigmaM(FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),1e16);
 	  initialiseGL_FcollSFR(NGL_SFR,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),RtoM(R_values[R_ct])); // TEST
-	  initialiseFcollSFR_spline(zpp,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),RtoM(R_values[R_ct]),M_TURN,ALPHA_STAR,0,F_STAR10,1.); // TEST
+	  initialiseFcollSFR_spline(zpp,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),RtoM(R_values[R_ct]),M_TURN,ALPHA_STAR,0,F_STAR10,1.,Mlim_Fstar,0.); // TEST
 	}
+	printf("\n Finishied initialise Fcoll_spline Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
+	exit(0);
 
       // let's now normalize the total collapse fraction so that the mean is the
       // Sheth-Torman collapse fraction
@@ -647,7 +727,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	  // New in v1.4: check how to use M_MIN
 	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY !=0) {
 	    //ST_over_PS[R_ct] = FgtrM_st_SFR(zp,M_MIN,M_TURN,ALPHA_STAR,0.,F_STAR10,1.) / fcoll_R;
-	    ST_over_PS[R_ct] = FgtrM_st_SFR(zp,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),  M_MIN_WDM),M_TURN,ALPHA_STAR,0.,F_STAR10,1.) / fcoll_R; // TEST
+	    //ST_over_PS[R_ct] = FgtrM_st_SFR(zp,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),  M_MIN_WDM),M_TURN,ALPHA_STAR,0.,F_STAR10,1.) / fcoll_R; // TEST
+	    ST_over_PS[R_ct] = Splined_Fcollz_mean / fcoll_R; // TEST
 	  }
 	  else {
         ST_over_PS[R_ct] = FgtrM_st(zpp, FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),  M_MIN_WDM)) / fcoll_R;
@@ -662,9 +743,11 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	     FgtrM_st_SFR(zp,M_MIN,M_TURN,ALPHA_STAR,0.,F_STAR10,1.)/FgtrM(zpp, TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts))
 		 */
 		 // TEST
-	     FgtrM_st_SFR(zp,TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_TURN,ALPHA_STAR,0.,F_STAR10,1.), 
+	     //FgtrM_st_SFR(zp,TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_TURN,ALPHA_STAR,0.,F_STAR10,1.), 
+		 Splined_Fcollz_mean,
 	     FgtrM(zpp, TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts)),
-	     FgtrM_st_SFR(zp,TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_TURN,ALPHA_STAR,0.,F_STAR10,1.)/FgtrM(zpp, TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts))
+	     Splined_Fcollz_mean/FgtrM(zpp, TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts))
+	     //FgtrM_st_SFR(zp,TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_TURN,ALPHA_STAR,0.,F_STAR10,1.)/FgtrM(zpp, TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts))
 	     );
 		}
 		else {
@@ -957,6 +1040,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
   //deallocate
   fclose(LOG); fclose(GLOBAL_EVOL); free(Tk_box); free(x_e_box); free(Ts);
+  destroy_21cmMC_arrays();
   for (R_ct=0; R_ct<NUM_FILTER_STEPS_FOR_Ts; R_ct++){
     free(delNL0[R_ct]);
   }

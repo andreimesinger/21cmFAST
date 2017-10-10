@@ -234,13 +234,11 @@ int main(int argc, char ** argv){
   M_MIN = pow(10, LOG_MASS_TURNOVER);
   // New in v1.4.  We have an exponential decrease of the duty cycle below M_TURN,
   // so we only need to integrate down to a little bellow it
-  printf("\n Here \n");
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){
     M_MIN = M_TURN/50.; 
 	Mlim_Fstar = Mass_limit_bisection(M_MIN,ALPHA_STAR,F_STAR10);
 	Mlim_Fesc = Mass_limit_bisection(M_MIN,ALPHA_ESC,F_ESC10);
   }  
-  exit(0);
   // check for WDM
   if (P_CUTOFF && ( M_MIN < M_J_WDM())){
     fprintf(stderr, "The default Jeans mass of %e Msun is smaller than the scale supressed by the effective pressure of WDM.\n", M_MIN);

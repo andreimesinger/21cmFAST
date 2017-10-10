@@ -5,7 +5,7 @@
   USAGE: find_HII_bubbles [-p <num of processors>] <redshift> [<previous redshift>]
   [<stellar fraction for 10^10 Msun halos> <power law index for stellar fraction halo mass scaling> 
    <escape fraction for 10^10 Msun halos> <power law index for escape fraction halo mass scaling>
-   <turn-over scale for the duty cycle of galaxies, in units of log10 halo mass>]
+   <turn-over scale for the duty cycle of galaxies, in units of halo mass>]
 
    final optional parameter is MFP (depricated in v1.4)
 
@@ -31,6 +31,7 @@
 
 float *Fcoll;
 
+//AM: REMOVE THE SPLINES WHICH ARE NO LONGER USED PLS
 void init_21cmMC_arrays() { // defined in Cosmo_c_files/ps.c
     
     Overdense_spline_GL_low = calloc(Nlow,sizeof(float));
@@ -118,7 +119,7 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
     *ALPHA_STAR = atof(argv[*arg_offset+min_argc+1]);
     *F_ESC10 = atof(argv[*arg_offset+min_argc+2]);
     *ALPHA_ESC = atof(argv[*arg_offset+min_argc+3]);
-    *M_TURN = pow(10.,atof(argv[*arg_offset+min_argc+4])); // Input value log10(M_TURN)
+    *M_TURN = atof(argv[*arg_offset+min_argc+4]); // Input value M_TURN
     *MFP = R_BUBBLE_MAX;
   }
   else if (argc == (*arg_offset + min_argc+6)){ // just use parameter efficiency
@@ -126,7 +127,7 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
     *ALPHA_STAR = atof(argv[*arg_offset+min_argc+1]);
     *F_ESC10 = atof(argv[*arg_offset+min_argc+2]);
     *ALPHA_ESC = atof(argv[*arg_offset+min_argc+3]);
-    *M_TURN = pow(10.,atof(argv[*arg_offset+min_argc+4])); // Input value log10(M_TURN)
+    *M_TURN = atof(argv[*arg_offset+min_argc+4]); // Input value M_TURN
     *MFP = atof(argv[*arg_offset+min_argc+5]);
   }
   else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
@@ -134,7 +135,7 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
     *ALPHA_STAR = STELLAR_BARYON_PL;
     *F_ESC10 = ESC_FRAC;
     *ALPHA_ESC = ESC_PL;
-    *M_TURN = pow(10., LOG_MASS_TURNOVER); // Input value log10(M_TURN)
+    *M_TURN = M_TURNOVER;
     *MFP = R_BUBBLE_MAX;
   }
   else{ return 0;} // format is not allowed
@@ -179,7 +180,7 @@ int main(int argc, char ** argv){
   double t_ast, dfcolldt, Gamma_R_prefactor, rec;
   float nua, dnua, temparg, Gamma_R, z_eff;
   float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, Mlim_Fstar, Mlim_Fesc; //New in v1.4
-  float growth_factor_dz, global_xH_m, fabs_dtdz, ZSTEP;
+  float global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
   *error_message = '\0';
 
@@ -217,7 +218,6 @@ int main(int argc, char ** argv){
   fabs_dtdz = fabs(dtdz(REDSHIFT));
   t_ast = t_STAR * t_hubble(REDSHIFT);
   growth_factor = dicke(REDSHIFT);
-  growth_factor_dz = dicke(REDSHIFT-dz);
   pixel_volume = pow(BOX_LEN/(float)HII_DIM, 3);
   pixel_mass = RtoM(L_FACTOR*BOX_LEN/(float)HII_DIM);
   // this parameter choice is sensitive to noise on the cell size, at least for the typical
@@ -229,15 +229,12 @@ int main(int argc, char ** argv){
   }
   init_ps();
   if (INHOMO_RECO) {  init_MHR();}
-  init_21cmMC_arrays();
-  ION_EFF_FACTOR = Ion_Eff_Factor_SFR(STELLAR_BARYON_FRAC,ESC_FRAC);
-  M_MIN = pow(10, LOG_MASS_TURNOVER);
-  // New in v1.4.  We have an exponential decrease of the duty cycle below M_TURN,
-  // so we only need to integrate down to a little bellow it
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {init_21cmMC_arrays();}
+  ION_EFF_FACTOR = N_GAMMA_UV * STELLAR_BARYON_FRAC * ESC_FRAC;
+  M_MIN = M_TURN;
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){
-    M_MIN = M_TURN/50.; 
-	Mlim_Fstar = Mass_limit_bisection(M_MIN,ALPHA_STAR,F_STAR10);
-	Mlim_Fesc = Mass_limit_bisection(M_MIN,ALPHA_ESC,F_ESC10);
+    Mlim_Fstar = Mass_limit_bisection(M_MIN/10.0, ALPHA_STAR, F_STAR10);
+    Mlim_Fesc = Mass_limit_bisection(M_MIN/10.0, ALPHA_ESC, F_ESC10);
   }  
   // check for WDM
   if (P_CUTOFF && ( M_MIN < M_J_WDM())){
@@ -245,7 +242,7 @@ int main(int argc, char ** argv){
     M_MIN = M_J_WDM();
     fprintf(stderr, "Setting a new effective Jeans mass from WDM pressure supression of %e Msun\n", M_MIN);
   }
-  initialiseSplinedSigmaM(M_MIN,1e16); // set up interpolation table for computing sigma_M
+  initialiseSplinedSigmaM(M_MIN/10.0,1e16); // set up interpolation table for computing sigma_M
 
   
   // INITIALIZE THREADS
@@ -265,9 +262,7 @@ int main(int argc, char ** argv){
   sprintf(filename, "../Log_files/HII_bubble_log_file_%d", getpid());
   LOG = fopen(filename, "w");
   if (!LOG){
-    fprintf(stderr, "find_HII_bubbles.c: Error opening log file\nAborting...\n");
-    fftwf_cleanup_threads();
-    free_ps(); return -1;
+    fprintf(stderr, "find_HII_bubbles.c: Error opening log file\n");
   }
 
   // allocate memory for the neutral fraction box
@@ -281,7 +276,7 @@ int main(int argc, char ** argv){
 
   // compute the mean collpased fraction at this redshift
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
-    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_MIN, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
+    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_MIN/10.0, M_MIN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
   }
   else { 
     mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
@@ -302,7 +297,7 @@ int main(int argc, char ** argv){
 	  fprintf(stderr, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fprintf(LOG, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
-	  free_ps(); destroy_21cmMC_arrays(); return -1;
+	  free_ps();  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();} return -1;
 	}
 	for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){
 	  if (fread(&xH[ct], sizeof(float), 1, F)!=1){
@@ -365,7 +360,7 @@ int main(int argc, char ** argv){
 	fprintf(LOG, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
       }
       free_ps(); fclose(F); fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
-       destroy_21cmMC_arrays(); return (int) (global_xH * 100);
+      if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();} return (int) (global_xH * 100);
     }
 
     /*************   END CHECK TO SEE IF WE ARE STILL IN THE DARK AGES *************/
@@ -569,7 +564,7 @@ int main(int argc, char ** argv){
       fftwf_free(xe_unfiltered);
       fftwf_free(N_rec_unfiltered);
       fftwf_free(N_rec_filtered);
-      destroy_21cmMC_arrays();
+      if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();}
       
       return -1;
     }
@@ -682,8 +677,8 @@ int main(int argc, char ** argv){
 	erfc_denom = sqrt(temparg);
 	    
 	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
-	  initialiseGL_FcollSFR(NGL_SFR,M_MIN,massofscaleR);
-	  initialiseFcollSFR_spline(REDSHIFT,M_MIN,massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
+	  initialiseGL_FcollSFR(NGL_SFR, M_MIN/10.0, massofscaleR);
+	  initialiseFcollSFR_spline(REDSHIFT, M_MIN/10.0, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
 
       
@@ -1012,7 +1007,7 @@ int main(int argc, char ** argv){
       fftwf_free(xe_unfiltered);
       fftwf_free(N_rec_unfiltered);
       fftwf_free(N_rec_filtered);
-      destroy_21cmMC_arrays();
+      if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();}
       
       return 0;
 }

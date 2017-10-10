@@ -219,7 +219,7 @@ double get_M_min_ion(float z);
 double get_M_min_ion(float z){
   double MMIN;
 
-  MMIN = pow(10, LOG_MASS_TURNOVER);
+  MMIN = M_TURNOVER;
 
   // check for WDM
   if (P_CUTOFF && ( MMIN < M_J_WDM()))
@@ -231,6 +231,9 @@ double get_M_min_ion(float z){
 /* Returns the minimum source mass for x-ray sources, according to user specifications */
 double get_M_min_xray(float z){
   double MMIN;
+
+  MMIN = M_TURNOVER;
+
   if (X_RAY_Tvir_MIN < 9.99999e3) //neutral IGM
     MMIN = TtoM(z, X_RAY_Tvir_MIN, 1.22);
   else // ionized IGM
@@ -1439,39 +1442,39 @@ void bisection(float *x, float xlow, float xup, int *iter){
 }
 
 float Mass_limit_bisection(float Mmin, float PL, float FRAC){
-	int i, iter, max_iter=200;
-	float rel_tol=0.001;
-	float logMlow, logMupper, x, x1;
-	iter = 0;
-	logMlow = log10(Mmin);
-	logMupper = log10(1e16);
-
-    if (PL < 0.) {
-	  if (Mass_limit(logMlow,PL,FRAC) < 1.) {
-	    return Mmin;
-	  }
-	}
-	else if (PL > 0.) {
-	  if (Mass_limit(logMupper,PL,FRAC) < 1.) {
-		return 1e16;
-	  }
-	}
-	bisection(&x, logMlow, logMupper, &iter);
-	do {
-	  if((Mass_limit(logMlow,PL,FRAC)-1.)*(Mass_limit(x,PL,FRAC)-1.) < 0.) 
-		logMupper = x;
-	  else 
-		logMlow = x;
-	  bisection(&x1, logMlow, logMupper, &iter);
-	  if(fabs(x1-x) < rel_tol) {
-		return pow(10.,x1);		
-	  }
-	  x = x1;
-	}
-	while(iter < max_iter);
-	printf("\n Failed to find a mass limit to regulate stellar fraction/escape fraction is between 0 and 1.\n");
-	printf(" The solution does not converge or iterations are not sufficient\n");
-    return -1;
+  int i, iter, max_iter=200;
+  float rel_tol=0.001;
+  float logMlow, logMupper, x, x1;
+  iter = 0;
+  logMlow = log10(Mmin);
+  logMupper = log10(1e16);
+  
+  if (PL < 0.) {
+    if (Mass_limit(logMlow,PL,FRAC) < 1.) {
+      return Mmin;
+    }
+  }
+  else if (PL > 0.) {
+    if (Mass_limit(logMupper,PL,FRAC) < 1.) {
+      return 1e16;
+    }
+  }
+  bisection(&x, logMlow, logMupper, &iter);
+  do {
+    if((Mass_limit(logMlow,PL,FRAC)-1.)*(Mass_limit(x,PL,FRAC)-1.) < 0.) 
+      logMupper = x;
+    else 
+      logMlow = x;
+    bisection(&x1, logMlow, logMupper, &iter);
+    if(fabs(x1-x) < rel_tol) {
+      return pow(10.,x1);		
+    }
+    x = x1;
+  }
+  while(iter < max_iter);
+  printf("\n Failed to find a mass limit to regulate stellar fraction/escape fraction is between 0 and 1.\n");
+  printf(" The solution does not converge or iterations are not sufficient\n");
+  return -1;
 }
 
 double dFdlnM_st_SFR(double lnM, void *params){
@@ -1490,16 +1493,16 @@ double dFdlnM_st_SFR(double lnM, void *params){
 	double Fstar, Fesc;
 
 	if (Alpha_star > 0. && M > Mlim_Fstar)
-		Fstar = 1.;
+		Fstar = 1./Fstar10;
 	else if (Alpha_star < 0. && M < Mlim_Fstar)
-		Fstar = 1.;
+		Fstar = 1/Fstar10;
 	else
 		Fstar = pow(M/1e10,Alpha_star);
 
 	if (Alpha_esc > 0. && M > Mlim_Fesc)
-		Fesc = 1.;
+		Fesc = 1./Fesc10;
 	else if (Alpha_esc < 0. && M < Mlim_Fesc)
-		Fesc = 1.;
+		Fesc = 1./Fesc10;
 	else
 		Fesc = pow(M/1e10,Alpha_esc);
 
@@ -1562,16 +1565,16 @@ float FgtrConditionallnM_GL_SFR(float lnM, struct parameters_gsl_SFR_con_int_ pa
 	float Fstar,Fesc;
 
 	if (Alpha_star > 0. && M > Mlim_Fstar)
-		Fstar = 1.;
+		Fstar = 1./Fstar10;
 	else if (Alpha_star < 0. && M < Mlim_Fstar)
-		Fstar = 1.;
+		Fstar = 1./Fstar10;
 	else
 		Fstar = pow(M/1e10,Alpha_star);
 
 	if (Alpha_esc > 0. && M > Mlim_Fesc)
-		Fesc = 1.;
+		Fesc = 1./Fesc10;
 	else if (Alpha_star < 0. && M < Mlim_Fesc)
-		Fesc = 1.;
+		Fesc = 1./Fesc10;
 	else
 		Fesc = pow(M/1e10,Alpha_esc);
 
@@ -1633,16 +1636,16 @@ double dFgtrConditionallnM_SFR(double lnM, void *params) {
 	double Fstar,Fesc;
 
 	if (Alpha_star > 0. && M > Mlim_Fstar)
-		Fstar = 1.;
+		Fstar = 1./Fstar10;
 	else if (Alpha_star < 0. && M < Mlim_Fstar)
-		Fstar = 1.;
+		Fstar = 1./Fstar10;
 	else
 		Fstar = pow(M/1e10,Alpha_star);
 
 	if (Alpha_esc > 0. && M > Mlim_Fesc)
-		Fesc = 1.;
+		Fesc = 1./Fesc10;
 	else if (Alpha_star < 0. && M < Mlim_Fesc)
-		Fesc = 1.;
+		Fesc = 1./Fesc10;
 	else
 		Fesc = pow(M/1e10,Alpha_esc);
 

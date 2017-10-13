@@ -48,7 +48,7 @@
   INHOMO_RECO = 1 compute inhomogeneous recombinations, ala Sobacchi & Mesinger (2014).
   This *requires* stepping down in redshift, e.g. using drive_logZscroll_Ts.c or  drive_zscroll_noTs.c
 */
-#define INHOMO_RECO (int) (1)
+#define INHOMO_RECO (int) (0)
 
 
 /*

@@ -11,7 +11,7 @@
 #define KAPPA_10_pH_NPTS (int) 17
 /* New in v1.4: Number of interpolation points for the interpolation table for z'' 
 				This is the same parameter in 21CMMC */
-#define zpp_interp_points (int) (400) 
+//#define zpp_interp_points (int) (400) 
 
 /* Define some global variables; yeah i know it isn't "good practice" but doesn't matter */
 double zpp_edge[NUM_FILTER_STEPS_FOR_Ts], sigma_atR[NUM_FILTER_STEPS_FOR_Ts], sigma_Tmin[NUM_FILTER_STEPS_FOR_Ts], ST_over_PS[NUM_FILTER_STEPS_FOR_Ts], sum_lyn[NUM_FILTER_STEPS_FOR_Ts], R_values[NUM_FILTER_STEPS_FOR_Ts];
@@ -343,9 +343,24 @@ float M_MIN_WDM =  M_J_WDM();
 	  mu_for_Ts = 1.22;
 	  else // ionized IGM
  	  mu_for_Ts = 0.6;
+
+/*      zpp_gridpoint1_int = (int)floor((zpp - determine_zpp_min)/zpp_bin_width);
+      zpp_gridpoint2_int = zpp_gridpoint1_int + 1;
+
+      zpp_gridpoint1 = determine_zpp_min + zpp_bin_width*(float)zpp_gridpoint1_int;
+      zpp_gridpoint2 = determine_zpp_min + zpp_bin_width*(float)zpp_gridpoint2_int;
+
+      grad1 = ( zpp_gridpoint2 - zpp )/( zpp_gridpoint2 - zpp_gridpoint1 );
+      grad2 = ( zpp - zpp_gridpoint1 )/( zpp_gridpoint2 - zpp_gridpoint1 );
+
+      initialise_Fcollz_SFR_Conditional(R_ct, zpp_gridpoint1_int, zpp_gridpoint2_int);
+
+      growth_zpp = dicke(zpp);*/
+
+
       initialiseSplinedSigmaM(FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),1e16);
 	  initialiseGL_FcollSFR(NGL_SFR,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),RtoM(R_values[zpp_ct]));
-	  initialiseFcollSFR_spline(zpp,FMAX(TtoM(zpp, X_RAY_Tvir_MIN, mu_for_Ts),M_MIN_WDM),RtoM(R_values[zpp_ct]),M_TURN,ALPHA_STAR,0,F_STAR10,1.,Mlim_Fstar,0.);
+	  initialiseFcollSFR_spline(zpp,RtoM(R_values[zpp_ct]),M_TURN,ALPHA_STAR,0,F_STAR10,1.,Mlim_Fstar,0.);
 	  //initialiseGL_FcollSFR(NGL_SFR, M_MIN, RtoM(R_values[zpp_ct]));
 	  //initialiseFcollSFR_spline(zpp, M_MIN,RtoM(R_values[zpp_ct]),M_TURN,ALPHA_STAR,0,F_STAR10,1.);
     }

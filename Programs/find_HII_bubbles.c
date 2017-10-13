@@ -34,46 +34,18 @@ float *Fcoll;
 //AM: REMOVE THE SPLINES WHICH ARE NO LONGER USED PLS
 void init_21cmMC_arrays() { // defined in Cosmo_c_files/ps.c
     
-    Overdense_spline_GL_low = calloc(Nlow,sizeof(float));
-    Fcoll_spline_GL_low = calloc(Nlow,sizeof(float));
-    second_derivs_low_GL = calloc(Nlow,sizeof(float));
-    Overdense_spline_GL_high = calloc(Nhigh,sizeof(float));
-    Fcoll_spline_GL_high = calloc(Nhigh,sizeof(float));
-    second_derivs_high_GL = calloc(Nhigh,sizeof(float));
-    
     Fcoll = (float *) malloc(sizeof(float)*HII_TOT_FFT_NUM_PIXELS);
     
-    xi_low = calloc((NGLlow+1),sizeof(float));
-    wi_low = calloc((NGLlow+1),sizeof(float));
-    
-    xi_high = calloc((NGLhigh+1),sizeof(float));
-    wi_high = calloc((NGLhigh+1),sizeof(float));
-
     Overdense_spline_SFR = calloc(NSFR_high,sizeof(float)); // New in v1.4
     Fcoll_spline_SFR = calloc(NSFR_high,sizeof(float));
     second_derivs_SFR = calloc(NSFR_high,sizeof(float));
     xi_SFR = calloc((NGL_SFR+1),sizeof(float));
     wi_SFR = calloc((NGL_SFR+1),sizeof(float));
-
-    
 }
 
 void destroy_21cmMC_arrays() {
     
     free(Fcoll);
-    
-    free(Overdense_spline_GL_low);
-    free(Fcoll_spline_GL_low);
-    free(second_derivs_low_GL);
-    free(Overdense_spline_GL_high);
-    free(Fcoll_spline_GL_high);
-    free(second_derivs_high_GL);
-    
-    free(xi_low);
-    free(wi_low);
-    
-    free(xi_high);
-    free(wi_high);
     
     free(Mass_Spline);
     free(Sigma_Spline);
@@ -229,20 +201,28 @@ int main(int argc, char ** argv){
   }
   init_ps();
   if (INHOMO_RECO) {  init_MHR();}
-  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {init_21cmMC_arrays();}
-  ION_EFF_FACTOR = N_GAMMA_UV * STELLAR_BARYON_FRAC * ESC_FRAC;
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+  	init_21cmMC_arrays();
+    Mlim_Fstar = Mass_limit_bisection(M_TURN, ALPHA_STAR, F_STAR10);
+    Mlim_Fesc = Mass_limit_bisection(M_TURN, ALPHA_ESC, F_ESC10);
+    ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
+  }
+  else
+    ION_EFF_FACTOR = N_GAMMA_UV * STELLAR_BARYON_FRAC * ESC_FRAC; // Constant ionizing efficiency parameter.
+
+  // Set the minimum halo mass hosting ionizing source mass.
+  // For constant ionizing efficiency parameter M_MIN is set to be M_TURN which is a sharp cut-off.
+  // For the new parametrization the number of halos hosting active galaxies (i.e. the duty cycle) is assumed to
+  // exponentially decrease below M_TURNOVER Msun, : fduty \propto e^(- M_TURNOVER / M)
+  // In this case, we define M_MIN = M_TURN/50.
   M_MIN = M_TURN;
-  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){
-    Mlim_Fstar = Mass_limit_bisection(M_MIN/10.0, ALPHA_STAR, F_STAR10);
-    Mlim_Fesc = Mass_limit_bisection(M_MIN/10.0, ALPHA_ESC, F_ESC10);
-  }  
   // check for WDM
   if (P_CUTOFF && ( M_MIN < M_J_WDM())){
     fprintf(stderr, "The default Jeans mass of %e Msun is smaller than the scale supressed by the effective pressure of WDM.\n", M_MIN);
     M_MIN = M_J_WDM();
     fprintf(stderr, "Setting a new effective Jeans mass from WDM pressure supression of %e Msun\n", M_MIN);
   }
-  initialiseSplinedSigmaM(M_MIN/10.0,1e16); // set up interpolation table for computing sigma_M
+  initialiseSplinedSigmaM(M_MIN/50.0,1e16); // set up interpolation table for computing sigma_M
 
   
   // INITIALIZE THREADS
@@ -276,14 +256,13 @@ int main(int argc, char ** argv){
 
   // compute the mean collpased fraction at this redshift
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
-    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_MIN/10.0, M_MIN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
+    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
   }
   else { 
     mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
   }
     /**********  CHECK IF WE ARE IN THE DARK AGES ******************************/
     // lets check if we are going to bother with computing the inhmogeneous field at all...
-    //if ((mean_f_coll_st/f_coll_crit < HII_ROUND_ERR)){ // way too small to ionize anything...
     if ((mean_f_coll_st*ION_EFF_FACTOR < HII_ROUND_ERR)){ // way too small to ionize anything...//New in v1.4: Need to be elaborated
       fprintf(stderr, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
                        I will just declare everything to be neutral\n", mean_f_coll_st, f_coll_crit);
@@ -677,8 +656,8 @@ int main(int argc, char ** argv){
 	erfc_denom = sqrt(temparg);
 	    
 	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
-	  initialiseGL_FcollSFR(NGL_SFR, M_MIN/10.0, massofscaleR);
-	  initialiseFcollSFR_spline(REDSHIFT, M_MIN/10.0, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
+	  initialiseGL_FcollSFR(NGL_SFR, M_MIN/50.0, massofscaleR);
+	  initialiseFcollSFR_spline(REDSHIFT, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
 
       
@@ -764,7 +743,6 @@ int main(int argc, char ** argv){
 	    }
 
 	    // check if fully ionized!
-	    //if ( (f_coll > (xHI_from_xrays/ION_EFF_FACTOR)*(1.0+rec)) ){ //IONIZED!!
 	    if ( (f_coll*ION_EFF_FACTOR > xHI_from_xrays*(1.0+rec)) ){ //IONIZED!! //New in v1.4
 	    
 	      // if this is the first crossing of the ionization barrier for this cell (largest R), record the gamma

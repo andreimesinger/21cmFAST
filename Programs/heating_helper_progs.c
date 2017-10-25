@@ -21,12 +21,16 @@ double growth_factor_zp, dgrowth_factor_dzp, PS_ION_EFF;
 int NO_LIGHT;
 float M_MIN_at_z, M_MIN_at_zp;
 int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY; // New in v1.4
-float F_STAR10,ALPHA_STAR,M_TURN,T_AST,Mlim_Fstar,M_MIN,Splined_Fcoll,Splined_Fcollz_mean; // New in v1.4
-int zpp_gridpoint1_int, zpp_gridpoint2_int; // New in v1.4
+float F_STAR10,F_ESC10,ALPHA_STAR,ALPHA_ESC,M_TURN,T_AST,Mlim_Fstar,Mlim_Fesc,M_MIN,Splined_Fcoll;//,Splined_Fcollz_mean; // New in v1.4
+int zpp_gridpoint1_int, zpp_gridpoint2_int;//,ithread; // New in v1.4
 float zpp_gridpoint1,zpp_gridpoint2,grad1,grad2,growth_zpp; // New in v1.4
 static float determine_zpp_max, determine_zpp_min,zpp_bin_width; // new in v1.4
+float *second_derivs_Fcoll_multi_z1[NUMCORES],*second_derivs_Fcoll_multi_z2[NUMCORES];
+gsl_interp_accel *FcollLow_multi_z1_spline_acc[NUMCORES];
+gsl_spline *FcollLow_multi_z1_spline[NUMCORES];
+gsl_interp_accel *FcollLow_multi_z2_spline_acc[NUMCORES];
+gsl_spline *FcollLow_multi_z2_spline[NUMCORES];
 int i; //TEST
-//double zpp_table[NUM_FILTER_STEPS_FOR_Ts]; // New in v1.4
  /* New in v1.4: This is for test to find Mmin which is the same with the original one. 
     If the code works, you don't need this parameter.
  */
@@ -54,8 +58,8 @@ double T_RECFAST(float z, int flag);
 /* Main driver for evolution */
 void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[], 
 	       double freq_int_ion[], double freq_int_lya[], 
-	       int COMPUTE_Ts, double y[], double deriv[],
-		   float Mturn, float ALPHA_STAR, float F_STAR10, float T_AST);
+	       int COMPUTE_Ts, double y[], double deriv[]);
+		   //float Mturn, float ALPHA_STAR, float F_STAR10, float T_AST);
 
 
 float dfcoll_dz(float z, float Tmin, float del_bias, float sig_bias);
@@ -65,18 +69,18 @@ double dT_comp(double z, double TK, double xe);
 
 /* Calculates the optical depth for a photon arriving at z = zp with frequency nu,
  emitted at z = zpp */
-//double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp); 
+double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp); 
 // New in v1.4
-double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10);
+//double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10);
 
 /* The total weighted HI + HeI + HeII  cross-section in pcm^-2 */
 double species_weighted_x_ray_cross_section(double nu, double x_e); 
 
 /* Returns the frequency threshold where \tau = 1 between zp and zpp,
  in the IGM with mean electron fraction x_e */
-//double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp); 
+double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp); 
 // New in v1.4
-double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10); 
+//double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10); 
 
  /* Main integral driver for the frequency integral in the evolution equations */
 double integrate_over_nu(double zp, double local_x_e, double lower_int_limit, int FLAG);
@@ -303,23 +307,28 @@ double spectral_emissivity(double nu_norm, int flag)
  ************************** IGM Evolution ***************************
   This function creates the d/dz' integrands
 *********************************************************************/
-// New in v1.4. additional input parameter "F_STAR10"
 void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[], 
 	       double freq_int_ion[], double freq_int_lya[], 
-	       int COMPUTE_Ts, double y[], double deriv[], float M_TURN, float ALPHA_STAR, float F_STAR10, float T_AST){
+	       int COMPUTE_Ts, double y[], double deriv[]){//, float M_TURN, float ALPHA_STAR, float F_STAR10, float T_AST){
   double  dfdzp, dadia_dzp, dcomp_dzp, dxheat_dt, ddz, dxion_source_dt, dxion_sink_dt;
   double zpp, dzpp, nu_temp;
-  int zpp_ct;
+  int zpp_ct,ithread;
   double T, x_e, dTdzp, dx_edzp, dfcoll, zpp_integrand;
   double dxe_dzp, n_b, dspec_dzp, dxheat_dzp, dxlya_dt, dstarlya_dt;
-  float Splined_Fcoll; //New in v1.4
-  float dfcoll2; // TEST
+  // New in v1.4
+  float growth_zpp; 
+  float fcoll1,fcoll2,fcoll,gradient1,gradient2,zpp1,zpp2;
+  int zpp1_int,zpp2_int,ii;
+  float zshift,dfcoll1,dfcoll2; // TEST
+
   x_e = y[0];
   T = y[1];
   n_b = N_b0 * pow(1+zp, 3) * (1+curr_delNL0[0]*growth_factor_zp);
 
 
   // First, let's do the trapazoidal integration over zpp
+  ithread = omp_get_thread_num();
+
   dxheat_dt = 0;
   dxion_source_dt = 0;
   dxlya_dt = 0;
@@ -335,52 +344,79 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
       zpp = (zpp_edge[zpp_ct]+zpp_edge[zpp_ct-1])*0.5;
       dzpp = zpp_edge[zpp_ct-1] - zpp_edge[zpp_ct];
     }
-	//printf("In evolveInt: zpp = %.4f\n",zpp);
+	growth_zpp = dicke(zpp); 
 	//New in v1.4
     if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      zpp_gridpoint1_int = (int)floor((zpp - determine_zpp_min)/zpp_bin_width);
-      zpp_gridpoint2_int = zpp_gridpoint1_int + 1;
+	 /* test for dfcoll_dz: 1 of 3 - start
+	 zshift = 0.001;
+	 for(ii=0; ii<2; ii++){
+	  if(ii==0) zpp = zpp + zshift;
+	  if(ii==1) zpp = zpp - 2.*zshift;
+	  test for dfcoll_dz: 1 of 3 - end */
+	  growth_zpp = dicke(zpp);
+      zpp1_int = (int)floor((zpp - determine_zpp_min)/zpp_bin_width);
+      zpp2_int = zpp1_int + 1;
 
-	  //if(zpp_gridpoint2_int > zpp_interp_points-1 || zpp_gridpoint1_int < 0) {
-	  //	printf(" zpp_ct = %d, zp1 = %d, zp2 = %d\n", zpp_ct, zpp_gridpoint1_int, zpp_gridpoint2_int);
-	  //	exit(0);
-	  //}
+      zpp1 = determine_zpp_min + zpp_bin_width*(float)zpp1_int;
+      zpp2 = determine_zpp_min + zpp_bin_width*(float)zpp2_int;
 
-      zpp_gridpoint1 = determine_zpp_min + zpp_bin_width*(float)zpp_gridpoint1_int;
-      zpp_gridpoint2 = determine_zpp_min + zpp_bin_width*(float)zpp_gridpoint2_int;
+      gradient1 = ( zpp2 - zpp )/( zpp2 - zpp1 );
+      gradient2 = ( zpp - zpp1 )/( zpp2 - zpp1 );
+	  // initialise interpolation ----------------------------------------------------------------------------
+      gsl_spline_init(FcollLow_multi_z1_spline[ithread], log10_overdense_low_table, log10_Fcollz_SFR_low_table[zpp_ct][zpp1_int], NSFR_low); 
+      spline(Overdense_high_table-1,Fcollz_SFR_high_table[zpp_ct][zpp1_int]-1,NSFR_high,0,0,second_derivs_Fcoll_multi_z1[ithread]-1); 
+      gsl_spline_init(FcollLow_multi_z2_spline[ithread], log10_overdense_low_table, log10_Fcollz_SFR_low_table[zpp_ct][zpp2_int], NSFR_low);
+      spline(Overdense_high_table-1,Fcollz_SFR_high_table[zpp_ct][zpp2_int]-1,NSFR_high,0,0,second_derivs_Fcoll_multi_z2[ithread]-1);
+	  // initialise interpolation end -------------------------------------------------------------------------
 
-      grad1 = ( zpp_gridpoint2 - zpp )/( zpp_gridpoint2 - zpp_gridpoint1 );
-      grad2 = ( zpp - zpp_gridpoint1 )/( zpp_gridpoint2 - zpp_gridpoint1 );
-	  //printf("z1,zpp,z2,zp1,zp2,grad1,grad2: %.4f, %.4f, %.4f, %d, %d, %.4e, %.4e\n",zpp_gridpoint1,zpp,zpp_gridpoint2,zpp_gridpoint1_int,zpp_gridpoint2_int,grad1,grad2);
-	  printf("zpp_ct= %d, z1=%.4f, zpp=%.4f, z2=%.4f, zp1=%d, zp2=%d, grad1=%.4e, grad2=%.4e, delta=%.4f \n",
-	  			zpp_ct,zpp_gridpoint1,zpp,zpp_gridpoint2,zpp_gridpoint1_int,zpp_gridpoint2_int,grad1,grad2,curr_delNL0[zpp_ct]);
-      initialise_Fcollz_SFR_Conditional(zpp_ct, zpp_gridpoint1_int, zpp_gridpoint2_int);
-	  FcollzSpline_SFR(zpp_ct, zpp_gridpoint1, zpp_gridpoint2, curr_delNL0[zpp_ct]*dicke(zpp), grad1, grad2, &(Splined_Fcoll));
-	  printf("	fcoll= %.4e\n",Splined_Fcoll);
-	  //FcollzSpline_SFR(zpp_ct, zpp_gridpoint1, zpp_gridpoint2, curr_delNL0[zpp_ct], grad1, grad2, &(Splined_Fcoll));
-
-      //growth_zpp = dicke(zpp);
+	  // Interpolate Fcoll -------------------------------------------------------------------------------------
+	  if (curr_delNL0[zpp_ct]*growth_zpp < 1.5){
+        if (curr_delNL0[zpp_ct]*growth_zpp < -1.) {
+          fcoll1 = 0;
+          fcoll2 = 0;
+        }
+        else {
+          fcoll1 = gsl_spline_eval(FcollLow_multi_z1_spline[ithread], log10(curr_delNL0[zpp_ct]*growth_zpp+1.), FcollLow_multi_z1_spline_acc[ithread]);
+          fcoll2 = gsl_spline_eval(FcollLow_multi_z2_spline[ithread], log10(curr_delNL0[zpp_ct]*growth_zpp+1.), FcollLow_multi_z2_spline_acc[ithread]);
+          fcoll1 = pow(10., fcoll1);
+          fcoll2 = pow(10., fcoll2);
+        }
+      }
+      else {
+        if (curr_delNL0[zpp_ct]*growth_zpp < 0.99*Deltac) {
+          // Usage of 0.99*Deltac arises due to the fact that close to the critical density, the collapsed fraction becomes a little unstable
+          // However, such densities should always be collapsed, so just set f_coll to unity. 
+          // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
+          splint(Overdense_high_table-1,Fcollz_SFR_high_table[zpp_ct][zpp1_int]-1,second_derivs_Fcoll_multi_z1[ithread]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll1));
+          splint(Overdense_high_table-1,Fcollz_SFR_high_table[zpp_ct][zpp2_int]-1,second_derivs_Fcoll_multi_z2[ithread]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll2));
+        }
+        else {
+          fcoll1 = 1.;
+          fcoll2 = 1.;
+        }
+      }
+      fcoll = fcoll1*gradient1 + fcoll2*gradient2;
+      //printf("delta = %.4f, fcoll1 = %.4e, fcoll2 = %.4e\n",Overdensity,fcoll1,fcoll2);
+      if (fcoll > 1.) fcoll = 1.;
+	  /* test for dfcoll_dz: 2 of 3 - start
+	  if(ii==0) dfcoll1 = fcoll; 
+	  if(ii==1) dfcoll2 = fcoll; 
+	 } // fcoll1 and fcoll2 calculated  
+	    test for dfcoll_dz: 2 of 3 - end */
+	  // Find Fcoll end ----------------------------------------------------------------------------------
 
 	  /* Instead of dfcoll/dz we compute fcoll/(T_AST*H(z)^-1)*(dt/dz), 
 	    where T_AST is the typical star-formation timescale, in units of the Hubble time.
 		This is the same parameter with 't_STAR' (defined in ANAL_PARAMS.H).
 		If turn the new parametrization on, this is a free parameter.
 		*/
-	  //printf("\n zpp_ct = %d, zpp = %.4f, delta = %.4f, ST_over_PS = %.4e, Splined_Fcoll = %.4e, hubble = %.4e, T_AST = %.4f, dtdz = %.4e\n",
-	  // 	zpp_ct, zpp, curr_delNL0[zpp_ct],ST_over_PS[zpp_ct],Splined_Fcoll,hubble(zpp),T_AST,fabs(dtdz(zpp)));
-	  dfcoll = ST_over_PS[zpp_ct]*Splined_Fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp));
-	  //printf("[%d]: dfcoll = %.4e\n",omp_get_thread_num(),dfcoll);
-      //dfcoll2 = dfcoll_dz(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct]);
-      //dfcoll2 *= ST_over_PS[zpp_ct] * dzpp; // this is now a positive quantity
-	  //if(zpp > determine_zpp_max) {printf("\n extrapolate!!! In evolveInt: zpp = %.4f\n",zpp); exit(0);}
-	  //printf("\n ST_over_PS = %.4e, Splined_Fcoll = %.4e, hubble = %.4e, T_AST = %.4f, dtdz = %.4e\n",
-	  //	ST_over_PS[zpp_ct],Splined_Fcoll,hubble(zpp),T_AST,fabs(dtdz(zpp)));
-	  //printf(" nstep = %d, zpp = %.4f, dfcoll_new = %.4e, dfcoll = %.4e, ratio = %.5f\n",zpp_ct,zpp,dfcoll,dfcoll2,(dfcoll/dfcoll2 -1.)*100.);
+	  dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp));
+	  //dfcoll = ST_over_PS[zpp_ct]*(double)((dfcoll1-dfcoll2)/2./zshift)*dzpp; test for dfcoll_dz: 3 of 3
 	}
 	else {
-	  printf("\n In main: nstep = %d, zpp = %.4f, sigma_Tmin = %.4e, sigma_atR = %.4e, delta = %.5f\n",zpp_ct,zpp,sigma_Tmin[zpp_ct],sigma_atR[zpp_ct],curr_delNL0[zpp_ct]);
       dfcoll = dfcoll_dz(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct]);
       dfcoll *= ST_over_PS[zpp_ct] * dzpp; // this is now a positive quantity
+	  //dfcoll = ST_over_PS[zpp_ct]*sigmaparam_FgtrM_bias(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct])*hubble(zpp)/0.7*fabs(dtdz(zpp));//TEST
 	}
     zpp_integrand = dfcoll * (1+curr_delNL0[zpp_ct]*dicke(zpp)) * pow(1+zpp, -X_RAY_SPEC_INDEX);
     dxheat_dt += zpp_integrand * freq_int_heat[zpp_ct];
@@ -388,25 +424,24 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
     if (COMPUTE_Ts){
       dxlya_dt += zpp_integrand * freq_int_lya[zpp_ct];
       dstarlya_dt += dfcoll * (1+curr_delNL0[zpp_ct]*dicke(zpp)) * pow(1+zp,2)*(1+zpp)
-	* sum_lyn[zpp_ct];
+                     * sum_lyn[zpp_ct];
     }
   }
+
   // add prefactors
   dxheat_dt *= const_zp_prefactor;
   dxion_source_dt *= const_zp_prefactor;
   if (COMPUTE_Ts){
     dxlya_dt *= const_zp_prefactor*n_b;
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) // New in v1.4
-    dstarlya_dt *= F_STAR10 * C * N_b0 / FOURPI;
-	else
-    dstarlya_dt *= F_STAR * C * N_b0 / FOURPI;
-
+	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY)
+    	dstarlya_dt *= F_STAR10 * C * N_b0 / FOURPI;
+    else
+		dstarlya_dt *= F_STAR * C * N_b0 / FOURPI;
     /*
     if ((dxlya_dt < 0) || (dstarlya_dt<0)){
          printf("***Jalpha_x=%e, Jalpha_star=%e\n", dxlya_dt, dstarlya_dt);
-	 for (zpp_ct = 0; zpp_ct < NUM_FILTER_STEPS_FOR_Ts; zpp_ct++)
-	   printf("freq_int=%e, sum_lyn=%e\n", freq_int_lya[zpp_ct], sum_lyn[zpp_ct]);
-
+  for (zpp_ct = 0; zpp_ct < NUM_FILTER_STEPS_FOR_Ts; zpp_ct++)
+    printf("freq_int=%e, sum_lyn=%e\n", freq_int_lya[zpp_ct], sum_lyn[zpp_ct]);
     }
     */
   }
@@ -416,6 +451,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
   /*** First let's do dxe_dzp ***/
   dxion_sink_dt = alpha_A(T) * CLUMPING_FACTOR * x_e*x_e * f_H * n_b;
   dxe_dzp = dt_dzp*(dxion_source_dt - dxion_sink_dt);
+  //printf("In evolveInt: z=%.4f, dt_dzp=%.4e, dxion_source_dt=%.4e, dxion_sink_dt==%.4e\n",zpp,dt_dzp,dxion_source_dt,dxion_sink_dt);
   deriv[0] = dxe_dzp;
   /*
   if (box_ct==1000000){
@@ -459,6 +495,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
   // stuff for marcos
   deriv[3] = dxheat_dzp;
   deriv[4] = dt_dzp*dxion_source_dt;
+  //printf("In evolveInt: zpp = %.4f, dansdz = %.4e, %.4e, %.4e, %.4e, %.4e\n",zpp,deriv[0],deriv[1],deriv[2],deriv[3],deriv[4]);
 }
 
 
@@ -601,29 +638,26 @@ double species_weighted_x_ray_cross_section(double nu, double x_e){
   The filling factor of neutral IGM at zp is HI_filling_factor_zp.
 */
 typedef struct{
-  //double nu_0, x_e, ion_eff;
+  double nu_0, x_e, ion_eff;
   // New in v1.4
-  double nu_0, x_e, ion_eff,M_TURN,ALPHA_STAR,F_STAR10;
+  //double nu_0, x_e, ion_eff,M_TURN,ALPHA_STAR,F_STAR10;
 } tauX_params;
 double tauX_integrand(double zhat, void *params){
   double n, drpropdz, nuhat, HI_filling_factor_zhat, sigma_tilde, fcoll;
   tauX_params *p = (tauX_params *) params;
-  float Splined_Fcollz_mean; // New in v1.4: compute function FgtrM_st_SFR using interpolation.
-  int cnt; //TEST
+  float Splined_Fcollz_mean; // New in v1.4: find fcoll from interpolation table
 
   drpropdz = C * dtdz(zhat);
   n = N_b0 * pow(1+zhat, 3);
   nuhat = p->nu_0 * (1+zhat);
   // New in v1.4
-  cnt = 0; //TEST
-  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
-    //fcoll = FgtrM_st_SFR(zhat, M_TURN/50, p->M_TURN, p->ALPHA_STAR, 0., p->F_STAR10, 1.);
-    //fcoll = FgtrM_st_SFR(zhat, get_M_min_ion(zhat), p->M_TURN, p->ALPHA_STAR, 0., p->F_STAR10, 1.);
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+    //fcoll = FgtrM(zhat, M_MIN); // TEST
 	FgtrM_st_SFR_z(zhat,&(Splined_Fcollz_mean));
 	fcoll = Splined_Fcollz_mean;
   }
   else {
-  fcoll = FgtrM(zhat, get_M_min_ion(zhat));
+    fcoll = FgtrM(zhat, M_MIN);
   }
   if (fcoll < 1e-20)
     HI_filling_factor_zhat = 1;
@@ -632,11 +666,11 @@ double tauX_integrand(double zhat, void *params){
   if (HI_filling_factor_zhat < 1e-4) HI_filling_factor_zhat = 1e-4; //set a floor for post-reionization stability
 
   sigma_tilde = species_weighted_x_ray_cross_section(nuhat, p->x_e);
-  //  printf("in taux integrand, %e, %e, %e, %e, %e, %f, %e, %e\n", drpropdz * n * HI_filling_factor_zhat * sigma_tilde, drpropdz, n, HI_filling_factor_zhat, sigma_tilde, zhat, p->ion_eff, FgtrM(zhat, get_M_min_ion(zhat)));
+
   return drpropdz * n * HI_filling_factor_zhat * sigma_tilde;
 }
-//double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp){
-double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10){
+double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp){
+//double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10){
   double result, error, fcoll;
        gsl_function F;
        double rel_tol  = 0.005; //<- relative tolerance
@@ -650,23 +684,18 @@ double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_fact
 	 printf("in taux, parameters are: %e, %e, %f, %f, %e\n", nu, x_e, zp, zpp, HI_filling_factor_zp);
        */
        F.function = &tauX_integrand;
-	   // New in v1.4
-	   p.M_TURN = M_TURN;
-	   p.ALPHA_STAR = ALPHA_STAR;
-	   p.F_STAR10 = F_STAR10;
        p.nu_0 = nu/(1+zp);
        p.x_e = x_e;
        // effective efficiency for the PS (not ST) mass function; quicker to compute...
        if (HI_filling_factor_zp > FRACT_FLOAT_ERR){
          // New in v1.4
-         if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
-           //fcoll = FgtrM_st_SFR(zhat, M_TURN/50, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.);
-           //fcoll = FgtrM_st_SFR(zp, M_MIN_at_zp, M_TURN, ALPHA_STAR, 0., F_STAR10, 1.);
+         if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
 		   FgtrM_st_SFR_z(zp,&(Splined_Fcollz_mean));
 		   fcoll = Splined_Fcollz_mean;
+	       //fcoll = FgtrM(zp, M_MIN);//TEST
          }
          else {
-	       fcoll = FgtrM(zp, M_MIN_at_zp);
+	       fcoll = FgtrM(zp, M_MIN);
 	     }
 	     p.ion_eff = (1.0 - HI_filling_factor_zp) / fcoll * (1.0 - x_e_ave);
 	     PS_ION_EFF = p.ion_eff;
@@ -694,19 +723,15 @@ double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_fact
   recieved redshift, zp, and emitted redshift, zpp.
 */
 typedef struct{
-  //double x_e, zp, zpp, HI_filling_factor_zp;
+  double x_e, zp, zpp, HI_filling_factor_zp;
   // New in v1.4
-  double x_e, zp, zpp, HI_filling_factor_zp, M_TURN, ALPHA_STAR, F_STAR10;
+  //double x_e, zp, zpp, HI_filling_factor_zp, M_TURN, ALPHA_STAR, F_STAR10;
 } nu_tau_one_params;
 double nu_tau_one_helper(double nu, void * params){
   nu_tau_one_params *p = (nu_tau_one_params *) params;
-  //return tauX(nu, p->x_e, p->zp, p->zpp, p->HI_filling_factor_zp) - 1;
-  // New in v1.4
-  return tauX(nu, p->x_e, p->zp, p->zpp, p->HI_filling_factor_zp, p->M_TURN, p->ALPHA_STAR, p->F_STAR10) - 1;
+  return tauX(nu, p->x_e, p->zp, p->zpp, p->HI_filling_factor_zp) - 1;
 }
-//double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp){
-// New in v1.4
-double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10){
+double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp){
   int status, iter, max_iter;
   const gsl_root_fsolver_type * T; 
   gsl_root_fsolver * s;
@@ -715,7 +740,6 @@ double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp
   double relative_error = 0.02;
   nu_tau_one_params p;
 
-  //printf("\n\n ************************* \n Start to compute function 'nu_tau_one'\n"); 
   if (DEBUG_ON){
     printf("in nu tau one, called with parameters: zp=%f, zpp=%f, x_e=%e, HI_filling_at_zp=%e\n",
 	   zp, zpp, x_e, HI_filling_factor_zp);
@@ -737,19 +761,14 @@ double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp
   }
 
   //check if lower bound has null
-  //if (tauX(HeI_NUIONIZATION, x_e, zp, zpp, HI_filling_factor_zp) < 1)
-  // New in v1.4
-  //printf("\n   Start to compute tauX\n");
-  if (tauX(HeI_NUIONIZATION, x_e, zp, zpp, HI_filling_factor_zp, M_TURN, ALPHA_STAR, F_STAR10) < 1)
+  if (tauX(HeI_NUIONIZATION, x_e, zp, zpp, HI_filling_factor_zp) < 1)
     return HeI_NUIONIZATION;
-  //printf("\n   End to compute tauX\n");
 
   // set frequency boundary values
   x_lo= HeI_NUIONIZATION;
   x_hi = 1e6 * NU_over_EV;
 
   // select function we wish to solve
-  //printf("\n   Start to compute integration 'nu_tau_one_helper'\n");
   p.x_e = x_e;
   p.zp = zp;
   p.zpp = zpp;
@@ -757,13 +776,11 @@ double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp
   F.function = &nu_tau_one_helper;  
   F.params = &p;
   gsl_root_fsolver_set (s, &F, x_lo, x_hi);
-  //printf("\n   End to compute integration 'nu_tau_one_helper'\n");
 
   // iterate until we guess close enough
   if (DEBUG_ON) printf ("%5s [%9s, %9s] %9s %9s\n", "iter", "lower", "upper", "root", "err(est)");
   iter = 0;
   max_iter = 100;
-  //printf(" still in nu_tau_one_helper: in iterate\n");
   do{
       iter++;
       status = gsl_root_fsolver_iterate (s);
@@ -779,11 +796,10 @@ double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp
 }
   while (status == GSL_CONTINUE && iter < max_iter);
 
-  //printf(" still in nu_tau_one_helper\n");
   // deallocate and return
   gsl_root_fsolver_free (s);
   if (DEBUG_ON) printf("Root found at %e eV", r/NU_over_EV);
-  //printf(" ************************* \n Start to compute function 'nu_tau_one'\n"); 
+
   return r;
 }
 

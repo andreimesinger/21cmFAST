@@ -26,10 +26,18 @@
 #define N_GAMMA_UV (float) (5000) // number of ionizing photons per stellar baryon
 #define STELLAR_BARYON_FRAC (double) (0.03) // defined for 10^10 Msun halos
 #define STELLAR_BARYON_PL (double) (0.4) //power law index w/ halo mass
+//#define STELLAR_BARYON_PL (double) (0.) //TEST
 #define ESC_FRAC (double) (0.1) // defined for 10^10 Msun halos
 #define ESC_PL (double) (-0.4) //power law index w/ halo mass
-#define M_TURNOVER (double) (1e9) // Halo mass threshold for efficient star formation (in Msun). 
+//#define ESC_PL (double) (0.) //TEST
+#define M_TURNOVER (double) (5e8) // Halo mass threshold for efficient star formation (in Msun). 
+//#define M_TURNOVER (double) (0.) // TEST
 
+/*
+  This version still keeps support for the constant ionizing efficiency with sharp cut-off for minimum halo mass.
+  If SHARP_CUTOFF = 1, use the constant ionizing efficency parameter with sharp cut-off.
+*/
+#define SHARP_CUTOFF (int) (0) 
 
 /*
   Maximum horizon for ionizing photons, in comoving Mpc.

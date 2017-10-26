@@ -54,22 +54,6 @@ static gsl_spline *erfc_spline;
 
 static gsl_interp_accel *Fcoll_spline_acc;
 static gsl_spline *Fcoll_spline;
-/*
-struct parameters_gsl_int_{
-    double z_obs;
-    double Mval;
-    double M_Feed;
-    double alpha_pl;
-    double del_traj_1;
-    double del_traj_2;
-};
-
-struct parameters_gsl_ST_int_{
-    double z_obs;
-    double M_Feed;
-    double alpha_pl;
-};
- DPL model will be removed: above this line */
 
 /* New in v1.4 - part 2 of 4: begin */
 static double log10_overdense_spline_SFR[NSFR_low], log10_Fcoll_spline_SFR[NSFR_low];
@@ -154,12 +138,6 @@ double FgtrM_general(float z, float M1, float M_Max, float M2, float MFeedback, 
 
 float FgtrConditionalM_second(float z, float M1, float M2, float MFeedback, float alpha, float delta1, float delta2);
 float dNdM_conditional_second(float z, float M1, float M2, float delta1, float delta2);
-
-//float FgtrConditionallnM(float M1, struct parameters_gsl_int_ parameters_gsl_int);
-//float GaussLegengreQuad_Fcoll(int n, float z, float M2, float MFeedback, float alpha, float delta1, float delta2);
-
-//float *Overdense_spline_gsl,*Overdense_spline_GL_high,*Fcoll_spline_gsl,*Fcoll_spline_GL_high,*xi_low,*xi_high,*wi_high,*wi_low;
-//float *second_derivs_low_GL,*second_derivs_high_GL,*Overdense_spline_GL_low,*Fcoll_spline_GL_low;
 
 float *Mass_Spline, *Sigma_Spline, *dSigmadm_Spline, *second_derivs_sigma, *second_derivs_dsigma;
 
@@ -1300,8 +1278,7 @@ double dFdlnM_st_SFR(double lnM, void *params){
 
 double FgtrM_st_SFR(double z, double MassTurnover, double Alpha_star, double Alpha_esc, double Fstar10, double Fesc10, double Mlim_Fstar, double Mlim_Fesc){
 	double M_Min = MassTurnover/50.;
-	float mu_for_Ts = 0.6; // TEST
-	float M_MIN_WDM = M_J_WDM();
+	//double M_Min = 1e8;
     double result, error, lower_limit, upper_limit;
     gsl_function F;
     double rel_tol = 0.001; //<- relative tolerance
@@ -1321,9 +1298,7 @@ double FgtrM_st_SFR(double z, double MassTurnover, double Alpha_star, double Alp
 
     F.function = &dFdlnM_st_SFR;
     F.params = &parameters_gsl_SFR;
-    //lower_limit = log(M_Min);
-    lower_limit = log(1e8);
-    //lower_limit = log(FMAX(TtoM(z, X_RAY_Tvir_MIN, mu_for_Ts),  M_MIN_WDM)); // TEST
+    lower_limit = log(M_Min);
     upper_limit = log(FMAX(1e16, M_Min*100));
 	//printf(" IN FgtrM_st_SFR: z = %.4f Mmin = %.4e, Mmax = %.4e\n",z,lower_limit, upper_limit);
 
@@ -1336,8 +1311,8 @@ double FgtrM_st_SFR(double z, double MassTurnover, double Alpha_star, double Alp
 }
 
 void initialiseGL_FcollSFR(int n, float M_TURN, float M_Max){
-	//float M_Min = M_TURN/50.;
-	float M_Min = M_TURN;
+	float M_Min = M_TURN/50.;
+	//float M_Min = 1e8;
     //calculates the weightings and the positions for Gauss-Legendre quadrature.
     gauleg(log(M_Min),log(M_Max),xi_SFR,wi_SFR,n);
 
@@ -1498,11 +1473,8 @@ double FgtrConditionalM_SFR(double z, double M1, double M2, double delta1, doubl
 // At a redshift compute conditional mass function over the density field.
 // Split density range into low and high density, since to increase accuray in high density region.
 void initialiseFcollSFR_spline(float z, float Mmax, float MassTurnover, float Alpha_star, float Alpha_esc, float Fstar10, float Fesc10, float Mlim_Fstar, float Mlim_Fesc){
-	//float Mmin = MassTurnover/50.;
-	float mu_for_Ts = 0.6;
-	float M_MIN_WDM = M_J_WDM();
-	//float Mmin = FMAX(TtoM(z, X_RAY_Tvir_MIN, mu_for_Ts),  M_MIN_WDM); // TEST
-	float Mmin = 1e8;//FMAX(TtoM(z, X_RAY_Tvir_MIN, mu_for_Ts),  M_MIN_WDM); // TEST
+	float Mmin = MassTurnover/50.;
+	//float Mmin = 1e8; // TEST
     double overdense_val;
     double overdense_large_high = Deltac, overdense_large_low = 1.5;
     double overdense_small_high = 1.5, overdense_small_low = -1. + 9e-8;
@@ -1572,7 +1544,6 @@ void initialise_FgtrM_st_SFR_spline(int Nbin, float zmin, float zmax, float Mass
 	Fcollz_spline = gsl_spline_alloc (gsl_interp_cspline, Nbin);
 	for (i=0; i<Nbin; i++){
 		z_val[i] = zmin + (double)i/((double)Nbin-1.)*(zmax - zmin);
-		MassTurn = 1e8*50.;// TEST: after finishing test delete this line
 		Fcollz_val[i] = FgtrM_st_SFR(z_val[i], MassTurn, Alpha_star, Alpha_esc, Fstar10, Fesc10, Mlim_Fstar, Mlim_Fesc);
 	}
 	gsl_spline_init(Fcollz_spline, z_val, Fcollz_val, Nbin);
@@ -1593,7 +1564,6 @@ void initialise_Xray_FgtrM_st_SFR_spline(int Nbin, float zmin, float zmax, float
 	FcollzX_spline = gsl_spline_alloc (gsl_interp_cspline, Nbin);
 	for (i=0; i<Nbin; i++){
 		z_X_val[i] = zmin + (double)i/((double)Nbin-1.)*(zmax - zmin);
-		MassTurn = 1e8*50.;// TEST: after finishing test delete this line
 		FcollzX_val[i] = FgtrM_st_SFR(z_val[i], MassTurn, Alpha_star, 0., Fstar10, 1.,Mlim_Fstar,0.);
 	}
 	gsl_spline_init(FcollzX_spline, z_X_val, FcollzX_val, Nbin);
@@ -1613,11 +1583,9 @@ void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], 
 	double Mmin,Mmax;
     int i,j,k;
     int Nfilter = n;
-	float mu_for_Ts; //TEST
-	float M_MIN_WDM = M_J_WDM();
 
-    Mmin = 1e8; // Test. Once the code works, delete this line.
-    //Mmin = MassTurnover/50; 
+    //Mmin = 1e8; // Test. Once the code works, delete this line.
+    Mmin = MassTurnover/50; 
     initialiseSplinedSigmaM(Mmin,RtoM(R[Nfilter-1]));
 	printf(" In initialise_Fcollz_SFR_Conditional_table: Rmin = %6.4f, Rmax = %6.4f, Mmin = %.4e, Mmax = %.4e\n",
 																R[0],R[Nfilter-1],RtoM(R[0]),RtoM(R[Nfilter-1]));

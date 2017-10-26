@@ -128,9 +128,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  float test1,Fcoll_dum,Fcoll_dum2,fcoll_R_old,fcoll_R_default,delta,
  	   ave_Fcoll_new,ave_Fcoll,Tave_Fcoll_new,Tave_Fcoll; // TEST parameter : delete this after test
  int jj, nn,iii;
- //FILE *LOG1;
+ FILE *LOG1;
  /* TEST file */
- //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_original_test3.txt",z);
+ //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_NEW_reproduce_original_test3.txt",z);
+ //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_original_full_test3.txt",z);
  //LOG1 = fopen(filename, "w");
  //fprintf(LOG1, "#  z	<Tk>	<x_e>	<Ts>	filling factor \n",z);
 
@@ -155,8 +156,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      return -1;
    }
    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
-   M_MIN = M_TURNOVER;
-   //M_MIN = 1e8; // TEST
+   //M_MIN = M_TURNOVER;
+   M_MIN = 1e8; // TEST
  }
  else {
    printf("\nNOTE: 'F_STAR10', 'ALPHA_STAR', 'F_ESC10', 'ALPHA_ESC' and 'T_AST' MUST be the same in 'find_HII_bubble.c'. \n");
@@ -206,7 +207,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
    init_21cmMC_arrays(); 
    init_interpolation();
-   //M_MIN = 1e8; //test
+   M_MIN = 1e8; //test
  }
 
  REDSHIFT = atof(argv[1]);
@@ -220,6 +221,14 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  omp_set_num_threads(NUMCORES);
  growth_factor_z = dicke(REDSHIFT);
 
+/* if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR)) {// use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
+    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
+	Mlim_Fstar = Mass_limit_bisection(M_MIN,ALPHA_STAR,F_STAR10);
+	Mlim_Fesc = Mass_limit_bisection(M_TURN, ALPHA_ESC, F_ESC10);
+	ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
+    init_21cmMC_arrays(); 
+    init_interpolation();
+ }*/
  
  //set the minimum ionizing source mass //*** New in v1.4 
  //if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) M_MIN = M_TURN/50.; // Turn this line on after test!!!
@@ -770,7 +779,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	  printf("\n\n  Total ratio = %.6f\n",(Tave_Fcoll_new/Tave_Fcoll -1.)*100.);
 	  //printf("\n Total time to initialise Fcoll Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	  exit(0); 
-	  */   
+	  */ 
 	  /***************************** TEST end *****************************/
 	  fcoll_R += Splined_Fcoll;
 	} 
@@ -922,7 +931,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
       /********  finally compute the redshift derivatives *************/
       evolveInt(zp, curr_delNL0, freq_int_heat, freq_int_ion, freq_int_lya,
-		COMPUTE_Ts, ans, dansdz);
+		COMPUTE_Ts, ans, dansdz);//, M_TURN,ALPHA_STAR,F_STAR10,T_AST);
  
       //update quantities
       x_e_box[box_ct] += dansdz[0] * dzp; // remember dzp is negative

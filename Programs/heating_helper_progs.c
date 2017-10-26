@@ -347,12 +347,12 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 	growth_zpp = dicke(zpp); 
 	//New in v1.4
     if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-	 /* test for dfcoll_dz: 1 of 3 - start
+	 /* test for dfcoll_dz: 1 of 3 - start */
 	 zshift = 0.001;
 	 for(ii=0; ii<2; ii++){
 	  if(ii==0) zpp = zpp + zshift;
 	  if(ii==1) zpp = zpp - 2.*zshift;
-	  test for dfcoll_dz: 1 of 3 - end */
+	  /* test for dfcoll_dz: 1 of 3 - end */
 	  growth_zpp = dicke(zpp);
       zpp1_int = (int)floor((zpp - determine_zpp_min)/zpp_bin_width);
       zpp2_int = zpp1_int + 1;
@@ -398,11 +398,11 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
       fcoll = fcoll1*gradient1 + fcoll2*gradient2;
       //printf("delta = %.4f, fcoll1 = %.4e, fcoll2 = %.4e\n",Overdensity,fcoll1,fcoll2);
       if (fcoll > 1.) fcoll = 1.;
-	  /* test for dfcoll_dz: 2 of 3 - start
+	  /* test for dfcoll_dz: 2 of 3 - start */
 	  if(ii==0) dfcoll1 = fcoll; 
 	  if(ii==1) dfcoll2 = fcoll; 
 	 } // fcoll1 and fcoll2 calculated  
-	    test for dfcoll_dz: 2 of 3 - end */
+	    /* test for dfcoll_dz: 2 of 3 - end */
 	  // Find Fcoll end ----------------------------------------------------------------------------------
 
 	  /* Instead of dfcoll/dz we compute fcoll/(T_AST*H(z)^-1)*(dt/dz), 
@@ -410,8 +410,8 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 		This is the same parameter with 't_STAR' (defined in ANAL_PARAMS.H).
 		If turn the new parametrization on, this is a free parameter.
 		*/
-	  dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp));
-	  //dfcoll = ST_over_PS[zpp_ct]*(double)((dfcoll1-dfcoll2)/2./zshift)*dzpp; test for dfcoll_dz: 3 of 3
+	  //dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp));
+	  dfcoll = ST_over_PS[zpp_ct]*(double)((dfcoll1-dfcoll2)/2./zshift)*dzpp; //test for dfcoll_dz: 3 of 3
 	}
 	else {
       dfcoll = dfcoll_dz(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct]);

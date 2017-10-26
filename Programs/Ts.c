@@ -128,7 +128,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  float test1,Fcoll_dum,Fcoll_dum2,fcoll_R_old,fcoll_R_default,delta,
  	   ave_Fcoll_new,ave_Fcoll,Tave_Fcoll_new,Tave_Fcoll; // TEST parameter : delete this after test
  int jj, nn,iii;
- FILE *LOG1;
+ //FILE *LOG1;
  /* TEST file */
  //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_original_test3.txt",z);
  //LOG1 = fopen(filename, "w");
@@ -184,6 +184,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      F_STAR10 = STELLAR_BARYON_FRAC;
      ALPHA_STAR = STELLAR_BARYON_PL;
      F_ESC10 = ESC_FRAC;
+     ALPHA_ESC = ESC_PL;
      M_TURN = M_TURNOVER; 
      T_AST = t_STAR;
    }
@@ -191,6 +192,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      F_STAR10 = STELLAR_BARYON_FRAC;
      ALPHA_STAR = STELLAR_BARYON_PL;
      F_ESC10 = ESC_FRAC;
+     ALPHA_ESC = ESC_PL;
      M_TURN = M_TURNOVER; 
      T_AST = t_STAR;
    }
@@ -218,14 +220,6 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  omp_set_num_threads(NUMCORES);
  growth_factor_z = dicke(REDSHIFT);
 
-/* if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR)) {// use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
-    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
-	Mlim_Fstar = Mass_limit_bisection(M_MIN,ALPHA_STAR,F_STAR10);
-	Mlim_Fesc = Mass_limit_bisection(M_TURN, ALPHA_ESC, F_ESC10);
-	ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
-    init_21cmMC_arrays(); 
-    init_interpolation();
- }*/
  
  //set the minimum ionizing source mass //*** New in v1.4 
  //if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) M_MIN = M_TURN/50.; // Turn this line on after test!!!
@@ -639,10 +633,12 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
         NO_LIGHT = 0;
 	}
 	else {
+	  //printf("here\n");
       if (FgtrM(zp, M_MIN) < 1e-15 )
         NO_LIGHT = 1;
       else
         NO_LIGHT = 0;
+	  //printf("here\n");
 	}
 
 	//New in v1.4
@@ -681,7 +677,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	
       zpp_edge[R_ct] = prev_zpp - (R_values[R_ct] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
       zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
-      sigma_Tmin[R_ct] = M_MIN; // In v1.4 sigma_Tmin doesn't nedd to be an array, just a constant.
+      sigma_Tmin[R_ct] =  sigma_z0(M_MIN); // In v1.4 sigma_Tmin doesn't nedd to be an array, just a constant.
 
 	// New in v1.4
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
@@ -724,7 +720,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       }
       zp = ((1+zp)/ ZPRIME_STEP_FACTOR - 1);
 
-	  for (iii=0; iii<NUM_FILTER_STEPS_FOR_Ts; iii++) {
+	  //for (iii=0; iii<NUM_FILTER_STEPS_FOR_Ts; iii++) {
+	  for (iii=0; iii<40; iii++) {
         if (iii==0){
 		  prev_zpp = zp;
 		  prev_R = 0;
@@ -745,7 +742,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
         grad1 = ( zpp_gridpoint2 - zpp )/( zpp_gridpoint2 - zpp_gridpoint1 );
         grad2 = ( zpp - zpp_gridpoint1 )/( zpp_gridpoint2 - zpp_gridpoint1 );
 
-	    initialise_Fcollz_SFR_Conditional(iii, zpp_gridpoint1_int, zpp_gridpoint2_int);
+	    initialise_Xray_Fcollz_SFR_Conditional(iii, zpp_gridpoint1_int, zpp_gridpoint2_int);
 
 		ave_Fcoll_new = 0.;
 		ave_Fcoll = 0.;
@@ -753,7 +750,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     	sigma_atR[iii] = sigma_z0(RtoM(R_values[iii]));
 	  	for (jj=0; jj<nn; jj++) {
 		  delta = -1. + ( (1.68 - (-1.))/(float)(nn-1) )* (float)jj;
-	  	  FcollzSpline_SFR(iii, zpp_gridpoint1, zpp_gridpoint2, delta*dicke(zpp), grad1, grad2, &(Splined_Fcoll));
+	  	  FcollzX_Spline_SFR(iii, zpp_gridpoint1, zpp_gridpoint2, delta*dicke(zpp), grad1, grad2, &(Splined_Fcoll));
 	  	  //FcollSpline_SFR(delta*dicke(zpp), &(Fcoll_dum)); // Old version for test
 	  	  Fcoll_dum2 = sigmaparam_FgtrM_bias(zpp, sigma_Tmin[iii],delta, sigma_atR[iii]);
 		  ave_Fcoll_new += Splined_Fcoll;
@@ -773,7 +770,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	  printf("\n\n  Total ratio = %.6f\n",(Tave_Fcoll_new/Tave_Fcoll -1.)*100.);
 	  //printf("\n Total time to initialise Fcoll Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	  exit(0); 
-	  */ 
+	  */   
 	  /***************************** TEST end *****************************/
 	  fcoll_R += Splined_Fcoll;
 	} 
@@ -925,7 +922,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
       /********  finally compute the redshift derivatives *************/
       evolveInt(zp, curr_delNL0, freq_int_heat, freq_int_ion, freq_int_lya,
-		COMPUTE_Ts, ans, dansdz);//, M_TURN,ALPHA_STAR,F_STAR10,T_AST);
+		COMPUTE_Ts, ans, dansdz);
  
       //update quantities
       x_e_box[box_ct] += dansdz[0] * dzp; // remember dzp is negative

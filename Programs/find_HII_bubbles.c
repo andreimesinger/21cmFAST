@@ -31,10 +31,7 @@
 
 float *Fcoll;
 
-//AM: REMOVE THE SPLINES WHICH ARE NO LONGER USED PLS
 void init_21cmMC_arrays() { // defined in Cosmo_c_files/ps.c
-    
-    Fcoll = (float *) malloc(sizeof(float)*HII_TOT_FFT_NUM_PIXELS);
     
     Overdense_spline_SFR = calloc(NSFR_high,sizeof(float)); // New in v1.4
     Fcoll_spline_SFR = calloc(NSFR_high,sizeof(float));
@@ -44,8 +41,6 @@ void init_21cmMC_arrays() { // defined in Cosmo_c_files/ps.c
 }
 
 void destroy_21cmMC_arrays() {
-    
-    free(Fcoll);
     
     free(Mass_Spline);
     free(Sigma_Spline);
@@ -64,6 +59,51 @@ void destroy_21cmMC_arrays() {
 FILE *LOG;
 unsigned long long SAMPLING_INTERVAL = (((unsigned long long)(HII_TOT_NUM_PIXELS/1.0e6)) + 1); //used to sample density field to compute mean collapsed fraction
 
+
+int parse_arguments_SHARP_CUTOFF(int argc, char ** argv, int * num_th, int * arg_offset, float *MFP,
+								float * REDSHIFT, float * PREV_REDSHIFT){
+
+  int min_argc = 2;
+
+  if (INHOMO_RECO)
+    min_argc++;
+  
+  // check if user wants to specify the multi threading
+  if ((argc > min_argc) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
+    // user specified num proc
+    *num_th = atoi(argv[2]);
+    *arg_offset = 2;
+  }
+  else{
+    *num_th = NUMCORES;
+    *arg_offset = 0;
+  }
+
+  if (argc == (*arg_offset + min_argc + 1)){
+    *MFP = atof(argv[*arg_offset+min_argc]);
+  }
+  else if (argc == (*arg_offset + min_argc)){
+    *MFP = R_BUBBLE_MAX;
+  }
+  else{ return 0;} // format is not allowed
+
+
+  *REDSHIFT = atof(argv[*arg_offset+1]);
+  if (INHOMO_RECO){
+    *PREV_REDSHIFT = atof(argv[*arg_offset+2]);
+    if (*PREV_REDSHIFT <= *REDSHIFT ){
+      fprintf(stderr, "find_HII_bubbles: previous redshift must be larger than current redshift!!!\nAborting...\n");
+      return -1;
+    }
+  }
+  else
+    *PREV_REDSHIFT = *REDSHIFT+0.2; // dummy variable which is not used
+
+   fprintf(stderr, "find_HII_bubbles: command line parameters are as follows\nnum threads=%i, f_star=%g, f_esc=%g, Mmin=%g, mfp=%g Mpc, z=%g, prev z=%g\n",
+	  *num_th, STELLAR_BARYON_FRAC, ESC_FRAC, M_TURNOVER, R_BUBBLE_MAX, *REDSHIFT, *PREV_REDSHIFT);
+
+  return 1;
+}
 
 int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, float * F_STAR10,
 		    float * ALPHA_STAR, float * F_ESC10, float * ALPHA_ESC, float * M_TURN, float *MFP,
@@ -86,32 +126,42 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
   }
 
   // parse the remaining arguments
-  if (argc == (*arg_offset + min_argc+5)){
-    *F_STAR10 = atof(argv[*arg_offset+min_argc]);
-    *ALPHA_STAR = atof(argv[*arg_offset+min_argc+1]);
-    *F_ESC10 = atof(argv[*arg_offset+min_argc+2]);
-    *ALPHA_ESC = atof(argv[*arg_offset+min_argc+3]);
-    *M_TURN = atof(argv[*arg_offset+min_argc+4]); // Input value M_TURN
+  if (SHARP_CUTOFF) {
+	if (argc == (*arg_offset + min_argc + 1)){
+    *MFP = atof(argv[*arg_offset+min_argc]);
+	}
+	else if (argc == (*arg_offset + min_argc)){
     *MFP = R_BUBBLE_MAX;
+	}
+    else{ return 0;} // format is not allowed
   }
-  else if (argc == (*arg_offset + min_argc+6)){ // just use parameter efficiency
-    *F_STAR10 = atof(argv[*arg_offset+min_argc]);
-    *ALPHA_STAR = atof(argv[*arg_offset+min_argc+1]);
-    *F_ESC10 = atof(argv[*arg_offset+min_argc+2]);
-    *ALPHA_ESC = atof(argv[*arg_offset+min_argc+3]);
-    *M_TURN = atof(argv[*arg_offset+min_argc+4]); // Input value M_TURN
-    *MFP = atof(argv[*arg_offset+min_argc+5]);
-  }
-  else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
-    *F_STAR10 = STELLAR_BARYON_FRAC;         // We need to set the parameters with some standard values later on.
-    *ALPHA_STAR = STELLAR_BARYON_PL;
-    *F_ESC10 = ESC_FRAC;
-    *ALPHA_ESC = ESC_PL;
-    *M_TURN = M_TURNOVER;
-    *MFP = R_BUBBLE_MAX;
-  }
-  else{ return 0;} // format is not allowed
-  
+  else {
+    if (argc == (*arg_offset + min_argc+5)){
+      *F_STAR10 = atof(argv[*arg_offset+min_argc]);
+      *ALPHA_STAR = atof(argv[*arg_offset+min_argc+1]);
+      *F_ESC10 = atof(argv[*arg_offset+min_argc+2]);
+      *ALPHA_ESC = atof(argv[*arg_offset+min_argc+3]);
+      *M_TURN = atof(argv[*arg_offset+min_argc+4]); // Input value M_TURN
+      *MFP = R_BUBBLE_MAX;
+    }
+    else if (argc == (*arg_offset + min_argc+6)){ // just use parameter efficiency
+      *F_STAR10 = atof(argv[*arg_offset+min_argc]);
+      *ALPHA_STAR = atof(argv[*arg_offset+min_argc+1]);
+      *F_ESC10 = atof(argv[*arg_offset+min_argc+2]);
+      *ALPHA_ESC = atof(argv[*arg_offset+min_argc+3]);
+      *M_TURN = atof(argv[*arg_offset+min_argc+4]); // Input value M_TURN
+      *MFP = atof(argv[*arg_offset+min_argc+5]);
+    }
+    else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
+      *F_STAR10 = STELLAR_BARYON_FRAC;         // We need to set the parameters with some standard values later on.
+      *ALPHA_STAR = STELLAR_BARYON_PL;
+      *F_ESC10 = ESC_FRAC;
+      *ALPHA_ESC = ESC_PL;
+      *M_TURN = M_TURNOVER;
+      *MFP = R_BUBBLE_MAX;
+    }
+    else{ return 0;} // format is not allowed
+  } 
 
   *REDSHIFT = atof(argv[*arg_offset+1]);
   if (INHOMO_RECO){
@@ -165,6 +215,7 @@ int main(int argc, char ** argv){
   double test1,test2,ratio1,ratio2;
   time_t start, start2, end2, end;
   double time_taken;
+  float dum; // TEST
   start = clock();
     
   /*************************************************************************************/  
@@ -172,19 +223,31 @@ int main(int argc, char ** argv){
   /*************************************************************************************/  
 
   // PARSE COMMAND LINE ARGUMENTS
-  if( !parse_arguments(argc, argv, &num_th, &arg_offset, &F_STAR10, &ALPHA_STAR, &F_ESC10,
+  if(SHARP_CUTOFF){
+    if (!parse_arguments_SHARP_CUTOFF(argc, argv, &num_th, &arg_offset, &MFP, 
+								&REDSHIFT, &PREV_REDSHIFT)){
+	    fprintf(stderr, "find_HII_bubbles <redshift> [<previous redshift>] \n \
+            Aborting...\n								\
+	    Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\nAborting...\n");
+	    return -1;
+	}
+  }
+  else {
+    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
+    if( !parse_arguments(argc, argv, &num_th, &arg_offset, &F_STAR10, &ALPHA_STAR, &F_ESC10,
 		       &ALPHA_ESC, &M_TURN, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
-	  fprintf(stderr, "find_HII_bubbles <redshift> [<previous redshift>] \n \
-	  additional optional arguments: <f_star10> <alpha,star> <f_esc10> <alpha,esc> <M_TURNOVER>] \n \
-          Aborting...\n								\
-	  Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\nAborting...\n");
-	  return -1;
+	    fprintf(stderr, "find_HII_bubbles <redshift> [<previous redshift>] \n \
+	    additional optional arguments: <f_star10> <alpha,star> <f_esc10> <alpha,esc> <M_TURNOVER>] \n \
+            Aborting...\n								\
+	    Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\nAborting...\n");
+	    return -1;
+    }
   }
 
-  if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR) ||
+/*  if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR) ||
       (fabs(ALPHA_ESC) > FRACT_FLOAT_ERR) ){ // use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
     HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
-  }
+  }  */
 
   ZSTEP = PREV_REDSHIFT - REDSHIFT;
   fabs_dtdz = fabs(dtdz(REDSHIFT));
@@ -200,6 +263,7 @@ int main(int argc, char ** argv){
     cell_length_factor = 1;
   }
   init_ps();
+  Fcoll = (float *) malloc(sizeof(float)*HII_TOT_FFT_NUM_PIXELS);
   if (INHOMO_RECO) {  init_MHR();}
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
   	init_21cmMC_arrays();
@@ -215,14 +279,19 @@ int main(int argc, char ** argv){
   // For the new parametrization the number of halos hosting active galaxies (i.e. the duty cycle) is assumed to
   // exponentially decrease below M_TURNOVER Msun, : fduty \propto e^(- M_TURNOVER / M)
   // In this case, we define M_MIN = M_TURN/50.
-  M_MIN = M_TURN;
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+    M_MIN = M_TURN;
+  }
+  else {
+    M_MIN = M_TURNOVER;
+  }
   // check for WDM
   if (P_CUTOFF && ( M_MIN < M_J_WDM())){
     fprintf(stderr, "The default Jeans mass of %e Msun is smaller than the scale supressed by the effective pressure of WDM.\n", M_MIN);
     M_MIN = M_J_WDM();
     fprintf(stderr, "Setting a new effective Jeans mass from WDM pressure supression of %e Msun\n", M_MIN);
   }
-  initialiseSplinedSigmaM(M_MIN/50.0,1e16); // set up interpolation table for computing sigma_M
+  initialiseSplinedSigmaM(M_MIN/50.0,5e16); // set up interpolation table for computing sigma_M
 
   
   // INITIALIZE THREADS
@@ -270,12 +339,17 @@ int main(int argc, char ** argv){
                     I will just declare everything to be neutral\n", mean_f_coll_st, f_coll_crit);
 
       if (USE_TS_IN_21CM){ // use the x_e box to set residuals
-	sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc_default",
-		REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+		if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
+    	  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
+		}
+		else {
+		  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
+		}
 	if (!(F = fopen(filename, "rb"))){
 	  fprintf(stderr, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fprintf(LOG, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
+      free(Fcoll);
 	  free_ps();  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();} return -1;
 	}
 	for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){
@@ -358,7 +432,12 @@ int main(int argc, char ** argv){
       }
 
       // and read-in
-      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc_default", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
+    	sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
+	  }
+	  else {
+		sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
+	  }
       if (!(F = fopen(filename, "rb"))){
 	strcpy(error_message, "find_HII_bubbles.c: Unable to open x_e file at ");
 	strcat(error_message, filename);
@@ -660,11 +739,9 @@ int main(int argc, char ** argv){
 	  initialiseFcollSFR_spline(REDSHIFT, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
 
-      
 	for (x=0; x<HII_DIM; x++){
 	  for (y=0; y<HII_DIM; y++){
 	    for (z=0; z<HII_DIM; z++){
-
 	      if (USE_HALO_FIELD){
 		Splined_Fcoll = *((float *)M_coll_filtered + HII_R_FFT_INDEX(x,y,z)) / (massofscaleR*density_over_mean);
 		Splined_Fcoll *= (4/3.0)*PI*pow(R,3) / pixel_volume;

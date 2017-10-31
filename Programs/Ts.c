@@ -1,5 +1,8 @@
 #include "heating_helper_progs.c"
 
+/* 
+  This is completed version.
+*/
 
 /*
   Program Ts calculates the spin temperature field, according to the perscription outlined in
@@ -24,21 +27,38 @@ void init_21cmMC_arrays() {
 
     for (ithread=0; ithread < NUMCORES; ithread++){
     
-    FcollLow_multi_z1_spline_acc[ithread] = gsl_interp_accel_alloc ();
-    FcollLow_multi_z1_spline[ithread] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
+      FcollLow_multi_z1_spline_acc[ithread] = gsl_interp_accel_alloc ();
+      FcollLow_multi_z1_spline[ithread] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
 
-    FcollLow_multi_z2_spline_acc[ithread] = gsl_interp_accel_alloc ();  
-    FcollLow_multi_z2_spline[ithread] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
+      FcollLow_multi_z2_spline_acc[ithread] = gsl_interp_accel_alloc ();  
+      FcollLow_multi_z2_spline[ithread] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
 
-    second_derivs_Fcoll_multi_z1[ithread] = calloc(NSFR_high,sizeof(float));
-    second_derivs_Fcoll_multi_z2[ithread] = calloc(NSFR_high,sizeof(float));
+      second_derivs_Fcoll_multi_z1[ithread] = calloc(NSFR_high,sizeof(float));
+      second_derivs_Fcoll_multi_z2[ithread] = calloc(NSFR_high,sizeof(float));
+    }
+
+	zpp1_interp_int = calloc(NUM_FILTER_STEPS_FOR_Ts, sizeof(int));
+	zpp2_interp_int = calloc(NUM_FILTER_STEPS_FOR_Ts, sizeof(int));
+	grad_zpp1 = calloc(NUM_FILTER_STEPS_FOR_Ts, sizeof(float));
+	grad_zpp2 = calloc(NUM_FILTER_STEPS_FOR_Ts, sizeof(float));
+
+    for (i=0; i < NUM_FILTER_STEPS_FOR_Ts; i++){
+    
+      FcollLow_zpp1_spline_acc[i] = gsl_interp_accel_alloc ();
+      FcollLow_zpp1_spline[i] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
+
+      FcollLow_zpp2_spline_acc[i] = gsl_interp_accel_alloc ();  
+      FcollLow_zpp2_spline[i] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
+
+      second_derivs_Fcoll_zpp1[i] = calloc(NSFR_high,sizeof(float));
+      second_derivs_Fcoll_zpp2[i] = calloc(NSFR_high,sizeof(float));
     }
 
     xi_SFR = calloc((NGL_SFR+1),sizeof(float));
     wi_SFR = calloc((NGL_SFR+1),sizeof(float));
 
-
-	zpp_table = calloc(zpp_interp_points, sizeof(float));
+	zpp_table = calloc(NUM_FILTER_STEPS_FOR_Ts, sizeof(float));
+	zpp_interp_table = calloc(zpp_interp_points, sizeof(float));
 	log10_overdense_low_table = calloc(NSFR_low,sizeof(double));
 	log10_Fcollz_SFR_low_table = (double ***)calloc(NUM_FILTER_STEPS_FOR_Ts,sizeof(double **));
 	for(i=0;i<NUM_FILTER_STEPS_FOR_Ts;i++){
@@ -65,6 +85,12 @@ void destroy_21cmMC_arrays() {
     free(wi_SFR);
 
 	free(zpp_table);
+	free(zpp_interp_table);
+	free(zpp1_interp_int);
+	free(zpp2_interp_int);
+	free(grad_zpp1);
+	free(grad_zpp2);
+
 	for(i=0;i<NUM_FILTER_STEPS_FOR_Ts;i++) {
 		for(j=0;j<zpp_interp_points;j++) {
 			free(log10_Fcollz_SFR_low_table[i][j]);
@@ -90,6 +116,14 @@ void destroy_21cmMC_arrays() {
       gsl_interp_accel_free (FcollLow_multi_z2_spline_acc[ithread]);
       free(second_derivs_Fcoll_multi_z1[ithread]);
       free(second_derivs_Fcoll_multi_z2[ithread]);
+    }
+    for (i=0; i < NUM_FILTER_STEPS_FOR_Ts; i++){
+      gsl_spline_free (FcollLow_zpp1_spline[i]);
+      gsl_interp_accel_free (FcollLow_zpp1_spline_acc[i]);
+      gsl_spline_free (FcollLow_zpp2_spline[i]);
+      gsl_interp_accel_free (FcollLow_zpp2_spline_acc[i]);
+      free(second_derivs_Fcoll_zpp1[i]);
+      free(second_derivs_Fcoll_zpp2[i]);
     }
 }
 
@@ -123,10 +157,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  time_t start_time, curr_time;
  double J_alpha_threads[NUMCORES], xalpha_threads[NUMCORES], Xheat_threads[NUMCORES],
    Xion_threads[NUMCORES], lower_int_limit;
- float Splined_Fcollzp_mean, Splined_Fcollzpp_X_mean,ION_EFF_FACTOR;
+ float Splined_Fcollzp_mean, Splined_Fcollzpp_X_mean,ION_EFF_FACTOR; // New in v1.4
  int RESTART = 0;
  float test1,Fcoll_dum,Fcoll_dum2,fcoll_R_old,fcoll_R_default,delta,
- 	   ave_Fcoll_new,ave_Fcoll,Tave_Fcoll_new,Tave_Fcoll; // TEST parameter : delete this after test
+ 	   ave_Fcoll_new,ave_Fcoll,Tave_Fcoll_new,Tave_Fcoll,fcoll1,fcoll2,dum1,dum2; // TEST parameter : delete this after test
  int jj, nn,iii;
  FILE *LOG1;
  /* TEST file */
@@ -156,8 +190,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      return -1;
    }
    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
-   //M_MIN = M_TURNOVER;
-   M_MIN = 1e8; // TEST
+   M_MIN = M_TURNOVER;
+   //M_MIN = 1e8; // TEST
  }
  else {
    printf("\nNOTE: 'F_STAR10', 'ALPHA_STAR', 'F_ESC10', 'ALPHA_ESC' and 'T_AST' MUST be the same in 'find_HII_bubble.c'. \n");
@@ -207,7 +241,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
    init_21cmMC_arrays(); 
    init_interpolation();
-   M_MIN = 1e8; //test
+   //M_MIN = 1e8; //test
  }
 
  REDSHIFT = atof(argv[1]);
@@ -266,10 +300,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    // open output
    // New in v1.4
    if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-   sprintf(filename, "../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
+   sprintf(filename, "../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_MturnX%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
    }
    else {
-   sprintf(filename, "../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
+   sprintf(filename, "../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_MminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
    }
    if (!(OUT=fopen(filename, "wb"))){
      fprintf(stderr, "Ts.c: WARNING: Unable to open output file %s\n", filename);
@@ -311,7 +345,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  // open global evolution output file
  // New in v1.4
  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
- sprintf(filename, "../Output_files/Ts_outs/global_evolution_Nsteps%i_zprimestepfactor%.3f_zetaX%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_f_esc%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", NUM_FILTER_STEPS_FOR_Ts, ZPRIME_STEP_FACTOR, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+ sprintf(filename, "../Output_files/Ts_outs/global_evolution_Nsteps%i_zprimestepfactor%.3f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", NUM_FILTER_STEPS_FOR_Ts, ZPRIME_STEP_FACTOR, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
    if (argc == 3 || argc == 9) // restarting
      GLOBAL_EVOL = fopen(filename, "a");
    else
@@ -504,10 +538,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   else{ // we need to load the evolution files from the intermediate output
     // first Tk
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
-    sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_f_esc%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+    sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	}
 	else {
-    sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+    sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
 	}
     if (!(F=fopen(filename, "rb"))){
       fprintf(stderr, "Ts.c: WARNING: Unable to open input file %s\nAborting\n", filename);
@@ -534,10 +568,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     // then xe_neutral
 	// New in v1.4
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_f_esc%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	}
 	else {
-    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
 	}
       if (!(F=fopen(filename, "rb"))){
       fprintf(stderr, "Ts.c: WARNING: Unable to open output file %s\nAborting\n", filename);
@@ -609,12 +643,13 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
         }    
         zpp_edge[R_ct] = prev_zpp - (R_values[R_ct] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
         zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
+		//printf("i=%d, zpp = %.4f, talbe[%d] = %.4f\n",R_ct, zpp,R_ct, zpp_table[R_ct]);
     }    
     determine_zpp_max = zpp*1.001;
 
     zpp_bin_width = (determine_zpp_max - determine_zpp_min)/((float)zpp_interp_points-1.0);
 	for (i=0; i<zpp_interp_points;i++) {
-      zpp_table[i] = determine_zpp_min + (determine_zpp_max - determine_zpp_min)*(float)i/((float)zpp_interp_points-1.0);
+      zpp_interp_table[i] = determine_zpp_min + (determine_zpp_max - determine_zpp_min)*(float)i/((float)zpp_interp_points-1.0);
     }
 
 	// initialise interpolation for the function of FgtrM_st_SFR between redshift
@@ -624,11 +659,44 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     initialise_Xray_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
     printf("\n Completed initialise Fcoll_spline fro X-ray Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	// initialise interpolation for Conditional mass function between redshift and overdensity
-	initialise_Xray_Fcollz_SFR_Conditional_table(NUM_FILTER_STEPS_FOR_Ts, zpp_table, R_values, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
+	initialise_Xray_Fcollz_SFR_Conditional_table(NUM_FILTER_STEPS_FOR_Ts, zpp_interp_table, R_values, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
 	printf("\n Completed initialise conditional mass function = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
   }
 
   while (zp > REDSHIFT){
+
+	// New in v1.4: initialise interpolation of fcoll over zpp and overdensity.
+	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+	  // initialise array for zpp corresponding to the current zp.
+	  for (i=0; i<NUM_FILTER_STEPS_FOR_Ts; i++) {
+        if (i==0){
+            prev_zpp = zp;
+            prev_R = 0; 
+        }    
+        else{
+            prev_zpp = zpp_edge[i-1];
+            prev_R = R_values[i-1];
+        }    
+        zpp_edge[i] = prev_zpp - (R_values[i] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
+        zpp = (zpp_edge[i]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
+		zpp_table[i] = zpp;
+        // finding interpolation grid point and calculate gradient for interpolation at each zpp.  
+        zpp1_interp_int[i] = (int)floor((zpp_table[i] - determine_zpp_min)/zpp_bin_width);
+        zpp2_interp_int[i] = zpp1_interp_int[i] + 1;
+
+        zpp_gridpoint1 = determine_zpp_min + zpp_bin_width*(float)zpp1_interp_int[i];
+        zpp_gridpoint2 = determine_zpp_min + zpp_bin_width*(float)zpp2_interp_int[i];
+
+        grad_zpp1[i] = ( zpp_gridpoint2 - zpp_table[i] )/( zpp_gridpoint2 - zpp_gridpoint1 );
+        grad_zpp2[i] = ( zpp_table[i] - zpp_gridpoint1 )/( zpp_gridpoint2 - zpp_gridpoint1 );
+		// initalise interpolation tables
+        gsl_spline_init(FcollLow_zpp1_spline[i], log10_overdense_low_table, log10_Fcollz_SFR_low_table[i][zpp1_interp_int[i]], NSFR_low);
+        spline(Overdense_high_table-1,Fcollz_SFR_high_table[i][zpp1_interp_int[i]]-1,NSFR_high,0,0,second_derivs_Fcoll_zpp1[i]-1); 
+        gsl_spline_init(FcollLow_zpp2_spline[i], log10_overdense_low_table, log10_Fcollz_SFR_low_table[i][zpp2_interp_int[i]], NSFR_low);
+        spline(Overdense_high_table-1,Fcollz_SFR_high_table[i][zpp2_interp_int[i]]-1,NSFR_high,0,0,second_derivs_Fcoll_zpp2[i]-1);
+	  }
+	}
+
     // check if we will next compute the spin temperature (i.e. if this is the final zp step)
     if (Ts_verbose || (((1+zp) / ZPRIME_STEP_FACTOR) < (REDSHIFT+1)) )
       COMPUTE_Ts = 1;
@@ -686,22 +754,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	
       zpp_edge[R_ct] = prev_zpp - (R_values[R_ct] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
       zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
-      sigma_Tmin[R_ct] =  sigma_z0(M_MIN); // In v1.4 sigma_Tmin doesn't nedd to be an array, just a constant.
-
-	// New in v1.4
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      // Determining values for the interpolation table
-      zpp_gridpoint1_int = (int)floor((zpp - determine_zpp_min)/zpp_bin_width);
-      zpp_gridpoint2_int = zpp_gridpoint1_int + 1;
-
-      zpp_gridpoint1 = determine_zpp_min + zpp_bin_width*(float)zpp_gridpoint1_int;
-      zpp_gridpoint2 = determine_zpp_min + zpp_bin_width*(float)zpp_gridpoint2_int;
-
-      grad1 = ( zpp_gridpoint2 - zpp )/( zpp_gridpoint2 - zpp_gridpoint1 );
-      grad2 = ( zpp - zpp_gridpoint1 )/( zpp_gridpoint2 - zpp_gridpoint1 );
-
-	  initialise_Xray_Fcollz_SFR_Conditional(R_ct, zpp_gridpoint1_int, zpp_gridpoint2_int);
-	}
+      if(SHARP_CUTOFF) sigma_Tmin[R_ct] =  sigma_z0(M_MIN); // In v1.4 sigma_Tmin doesn't nedd to be an array, just a constant.
 
       // let's now normalize the total collapse fraction so that the mean is the
       // Sheth-Torman collapse fraction
@@ -711,76 +764,36 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	sample_ct++;
 	// New in v1.4
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-	  FcollzX_Spline_SFR(R_ct, zpp_gridpoint1, zpp_gridpoint2, delNL0[R_ct][box_ct]*dicke(zpp), grad1, grad2, &(Splined_Fcoll));  
-
-	  /***************************** TEST start *****************************/
-	  /* 
-	  nn = 100;
-	  Tave_Fcoll_new = 0.;
-	  Tave_Fcoll = 0.;
-  	  if (!RESTART){
-      zp = REDSHIFT*1.0001; //higher for rounding
-      while (zp < Z_HEAT_MAX) 
-        zp = ((1+zp)*ZPRIME_STEP_FACTOR - 1);
-        prev_zp = Z_HEAT_MAX;
-      }
-      else{
-        prev_zp = zp;
-      }
-      zp = ((1+zp)/ ZPRIME_STEP_FACTOR - 1);
-
-	  //for (iii=0; iii<NUM_FILTER_STEPS_FOR_Ts; iii++) {
-	  for (iii=0; iii<40; iii++) {
-        if (iii==0){
-		  prev_zpp = zp;
-		  prev_R = 0;
-        }
-        else{
-	      prev_zpp = zpp_edge[iii-1];
-	      prev_R = R_values[iii-1];
-        }
-        zpp_edge[iii] = prev_zpp - (R_values[iii] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
-        zpp = (zpp_edge[iii]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
-
-        zpp_gridpoint1_int = (int)floor((zpp - determine_zpp_min)/zpp_bin_width);
-        zpp_gridpoint2_int = zpp_gridpoint1_int + 1;
-
-        zpp_gridpoint1 = determine_zpp_min + zpp_bin_width*(float)zpp_gridpoint1_int;
-        zpp_gridpoint2 = determine_zpp_min + zpp_bin_width*(float)zpp_gridpoint2_int;
-
-        grad1 = ( zpp_gridpoint2 - zpp )/( zpp_gridpoint2 - zpp_gridpoint1 );
-        grad2 = ( zpp - zpp_gridpoint1 )/( zpp_gridpoint2 - zpp_gridpoint1 );
-
-	    initialise_Xray_Fcollz_SFR_Conditional(iii, zpp_gridpoint1_int, zpp_gridpoint2_int);
-
-		ave_Fcoll_new = 0.;
-		ave_Fcoll = 0.;
-        sigma_Tmin[iii] = sigma_z0(1e8);
-    	sigma_atR[iii] = sigma_z0(RtoM(R_values[iii]));
-	  	for (jj=0; jj<nn; jj++) {
-		  delta = -1. + ( (1.68 - (-1.))/(float)(nn-1) )* (float)jj;
-	  	  FcollzX_Spline_SFR(iii, zpp_gridpoint1, zpp_gridpoint2, delta*dicke(zpp), grad1, grad2, &(Splined_Fcoll));
-	  	  //FcollSpline_SFR(delta*dicke(zpp), &(Fcoll_dum)); // Old version for test
-	  	  Fcoll_dum2 = sigmaparam_FgtrM_bias(zpp, sigma_Tmin[iii],delta, sigma_atR[iii]);
-		  ave_Fcoll_new += Splined_Fcoll;
-		  ave_Fcoll += Fcoll_dum2;
-		  Tave_Fcoll_new += Splined_Fcoll;
-		  Tave_Fcoll += Fcoll_dum2;
-		  printf(" i = %d, R= %.4f, zpp= %.4f, delta = %.4f, Fcoll_New = %.4e, Fcoll = %.4e, ratio = %.6f\n",
-		  		jj,R_values[iii], zpp, delta,Splined_Fcoll,Fcoll_dum2,(Splined_Fcoll/Fcoll_dum2 -1.)*100.);
-	  	}
-		ave_Fcoll_new /= (float)nn;
-		ave_Fcoll /= (float)nn;
-		printf("\nAt R=%.4f Fcoll_ave_new = %.6f, Fcoll_ave = %.6f, ratio = %.6f\n", 
-	    				   R_values[iii],ave_Fcoll_new, ave_Fcoll,(ave_Fcoll_new/ave_Fcoll -1.)*100.);
-	  }
-	  Tave_Fcoll_new /= ((float)nn*(float)NUM_FILTER_STEPS_FOR_Ts );
-	  Tave_Fcoll /= ((float)nn*(float)NUM_FILTER_STEPS_FOR_Ts );
-	  printf("\n\n  Total ratio = %.6f\n",(Tave_Fcoll_new/Tave_Fcoll -1.)*100.);
-	  //printf("\n Total time to initialise Fcoll Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
-	  exit(0); 
-	  */ 
-	  /***************************** TEST end *****************************/
+	  growth_zpp = dicke(zpp);
+      // interpolation for fcoll start - let's make this void and move to ps.c
+      if (delNL0[R_ct][box_ct]*growth_zpp < 1.5){
+        if (delNL0[R_ct][box_ct]*growth_zpp < -1.) {
+          fcoll1 = 0;
+          fcoll2 = 0;
+        }    
+        else {
+          fcoll1 = gsl_spline_eval(FcollLow_zpp1_spline[R_ct], log10(delNL0[R_ct][box_ct]*growth_zpp+1.), FcollLow_zpp1_spline_acc[R_ct]);
+          fcoll1 = pow(10., fcoll1);
+          fcoll2 = gsl_spline_eval(FcollLow_zpp2_spline[R_ct], log10(delNL0[R_ct][box_ct]*growth_zpp+1.), FcollLow_zpp2_spline_acc[R_ct]);
+          fcoll2 = pow(10., fcoll2);
+        }    
+      }    
+      else {
+        if (delNL0[R_ct][box_ct]*growth_zpp < 0.99*Deltac) {
+          // Usage of 0.99*Deltac arises due to the fact that close to the critical density, the collapsed fraction becomes a little unstable
+          // However, such densities should always be collapsed, so just set f_coll to unity. 
+          // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
+          splint(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zpp1_interp_int[R_ct]]-1,second_derivs_Fcoll_zpp1[R_ct]-1,NSFR_high,delNL0[R_ct][box_ct]*growth_zpp,&(fcoll1));
+          splint(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zpp2_interp_int[R_ct]]-1,second_derivs_Fcoll_zpp2[R_ct]-1,NSFR_high,delNL0[R_ct][box_ct]*growth_zpp,&(fcoll2));
+        }    
+        else {
+          fcoll1 = 1.;
+          fcoll2 = 1.;
+        }    
+      }    
+      Splined_Fcoll = fcoll1*grad_zpp1[R_ct] + fcoll2*grad_zpp2[R_ct];
+      /* interpolation for fcoll is done */
+	  //Fcollz_Xray_Spline(R_ct, delNL0[R_ct][box_ct]*growth_zpp, zpp_table, zpp1_interp_int, zpp2_interp_int, grad_zpp1, grad_zpp2, &(Splined_Fcoll));
 	  fcoll_R += Splined_Fcoll;
 	} 
 	else {
@@ -1000,10 +1013,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       // first Tk
 	    // New v1.4
 	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_f_esc%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+      sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	  }
 	  else {
-      sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+      sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
 	  }
       if (!(F=fopen(filename, "wb"))){
 	fprintf(stderr, "Ts.c: WARNING: Unable to open output file %s\n", filename);
@@ -1019,10 +1032,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       // then xe_neutral
 	    // New in v1.4
 	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_f_esc%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	  }
 	  else {
-      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
 	  }
       if (!(F=fopen(filename, "wb"))){
 	fprintf(stderr, "Ts.c: WARNING: Unable to open output file %s\n", filename);

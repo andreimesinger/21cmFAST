@@ -1,3 +1,6 @@
+/*
+  This is completed version.
+*/
 #ifndef _PS_
 #define _PS_
 
@@ -89,7 +92,7 @@ static gsl_interp_accel *FcollLow_z2_spline_acc;
 static gsl_spline *FcollLow_z2_spline;
 void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], float MassTurnover, float Alpha_star, float Fstar10, float Mlim_Fstar);
 void initialise_Xray_Fcollz_SFR_Conditional(int R_ct, int zp_int1, int zp_int2);
-void FcollzX_Spline_SFR(int R_ct, int zp_int1, int zp_int2, float Overdensity, float grad1, float grad2, float *splined_value);
+//void FcollzX_Spline_SFR(int R_ct, int zp_int1, int zp_int2, float Overdensity, float grad1, float grad2, float *splined_value);
 void init_interpolation();
 void free_interpolation();
     /* For Ts.c: being under development above this line */
@@ -1631,41 +1634,6 @@ void initialise_Xray_Fcollz_SFR_Conditional(int R_ct, int zp_int1, int zp_int2){
     spline(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zp_int2]-1,NSFR_high,0,0,second_derivs_Fcoll_z2-1);
 }
 
-void FcollzX_Spline_SFR(int R_ct, int zp_int1, int zp_int2, float Overdensity, float grad1, float grad2, float *splined_value){
-    int i;
-    float fcoll1, fcoll2, returned_value;
-
-    if (Overdensity < 1.5){
-      if (Overdensity < -1.) {
-        fcoll1 = 0;
-        fcoll2 = 0;
-      }
-      else {
-        fcoll1 = gsl_spline_eval(FcollLow_z1_spline, log10(Overdensity+1.), FcollLow_z1_spline_acc);
-        fcoll2 = gsl_spline_eval(FcollLow_z2_spline, log10(Overdensity+1.), FcollLow_z2_spline_acc);
-        fcoll1 = pow(10., fcoll1);
-        fcoll2 = pow(10., fcoll2);
-      }
-    }
-    else {
-      if (Overdensity < 0.99*Deltac) {
-        // Usage of 0.99*Deltac arises due to the fact that close to the critical density, the collapsed fraction becomes a little unstable
-        // However, such densities should always be collapsed, so just set f_coll to unity. 
-        // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
-        splint(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zp_int1]-1,second_derivs_Fcoll_z1-1,NSFR_high,Overdensity,&(fcoll1));
-        splint(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zp_int2]-1,second_derivs_Fcoll_z2-1,NSFR_high,Overdensity,&(fcoll2));
-        }
-      else {
-        fcoll1 = 1.;
-        fcoll2 = 1.;
-      }
-    }
-
-    returned_value = fcoll1*grad1 + fcoll2*grad2;
-    //printf("delta = %.4f, fcoll1 = %.4e, fcoll2 = %.4e\n",Overdensity,fcoll1,fcoll2);
-    if (returned_value > 1.) returned_value = 1.;
-    *splined_value = returned_value;
-}
 void init_interpolation() {
 	second_derivs_Fcoll_z1 = calloc(NSFR_high,sizeof(float));
 	second_derivs_Fcoll_z2 = calloc(NSFR_high,sizeof(float));

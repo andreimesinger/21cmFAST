@@ -1,9 +1,5 @@
 #include "heating_helper_progs.c"
 
-/* 
-  This is completed version.
-*/
-
 /*
   Program Ts calculates the spin temperature field, according to the perscription outlined in
   Mesinger, Furlanetto, Cen (2010).  The fluctuating component is sourced by the mean EPS collapsed fraction in spherical annyli surrounding each cell.

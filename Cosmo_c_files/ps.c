@@ -1,6 +1,3 @@
-/*
-  This is completed version.
-*/
 #ifndef _PS_
 #define _PS_
 
@@ -60,7 +57,7 @@ static gsl_spline *Fcoll_spline;
 
 /* New in v1.4 - part 2 of 4: begin */
 static double log10_overdense_spline_SFR[NSFR_low], log10_Fcoll_spline_SFR[NSFR_low];
-static gsl_interp_accel *FcollLow_spline_acc;//[num_threads];
+static gsl_interp_accel *FcollLow_spline_acc;
 static gsl_spline *FcollLow_spline;
 
 void initialiseGL_FcollSFR(int n, float M_TURN, float M_Max);
@@ -85,15 +82,8 @@ void FgtrM_st_SFR_X_z(float z, float *splined_value);
 float *zpp_table;
 double *log10_overdense_low_table, ***log10_Fcollz_SFR_low_table;
 float *Overdense_high_table, ***Fcollz_SFR_high_table;
-float *second_derivs_Fcoll_z1, *second_derivs_Fcoll_z2;
-static gsl_interp_accel *FcollLow_z1_spline_acc;
-static gsl_spline *FcollLow_z1_spline;
-static gsl_interp_accel *FcollLow_z2_spline_acc;
-static gsl_spline *FcollLow_z2_spline;
 void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], float MassTurnover, float Alpha_star, float Fstar10, float Mlim_Fstar);
 void initialise_Xray_Fcollz_SFR_Conditional(int R_ct, int zp_int1, int zp_int2);
-//void FcollzX_Spline_SFR(int R_ct, int zp_int1, int zp_int2, float Overdensity, float grad1, float grad2, float *splined_value);
-void init_interpolation();
 void free_interpolation();
     /* For Ts.c: being under development above this line */
 
@@ -1618,39 +1608,11 @@ void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], 
     }
 }
 
-void initialise_Xray_Fcollz_SFR_Conditional(int R_ct, int zp_int1, int zp_int2){
-
-    // low overdensity: delta < 1.5
-    FcollLow_z1_spline_acc = gsl_interp_accel_alloc ();
-    FcollLow_z1_spline = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
-    gsl_spline_init(FcollLow_z1_spline, log10_overdense_low_table, log10_Fcollz_SFR_low_table[R_ct][zp_int1], NSFR_low);
-
-    FcollLow_z2_spline_acc = gsl_interp_accel_alloc ();
-    FcollLow_z2_spline = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
-    gsl_spline_init(FcollLow_z2_spline, log10_overdense_low_table, log10_Fcollz_SFR_low_table[R_ct][zp_int2], NSFR_low);
-
-    // high overdensity: delta > 1.5
-    spline(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zp_int1]-1,NSFR_high,0,0,second_derivs_Fcoll_z1-1);
-    spline(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zp_int2]-1,NSFR_high,0,0,second_derivs_Fcoll_z2-1);
-}
-
-void init_interpolation() {
-	second_derivs_Fcoll_z1 = calloc(NSFR_high,sizeof(float));
-	second_derivs_Fcoll_z2 = calloc(NSFR_high,sizeof(float));
-}
 void free_interpolation() {
-    gsl_spline_free (FcollLow_z1_spline);
-    gsl_interp_accel_free (FcollLow_z1_spline_acc);
-    gsl_spline_free (FcollLow_z2_spline);
-    gsl_interp_accel_free (FcollLow_z2_spline_acc);
-    free(second_derivs_Fcoll_z1);
-    free(second_derivs_Fcoll_z2);
-
     gsl_spline_free (FcollzX_spline);
     gsl_interp_accel_free (FcollzX_spline_acc);
     gsl_spline_free (Fcollz_spline);
     gsl_interp_accel_free (Fcollz_spline_acc);
-
 }
 // For Ts.c : The functions above this line are under development.
 

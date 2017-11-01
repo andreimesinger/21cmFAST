@@ -1,5 +1,9 @@
 #include "heating_helper_progs.c"
 
+/* 
+  This is completed version.
+*/
+
 /*
   Program Ts calculates the spin temperature field, according to the perscription outlined in
   Mesinger, Furlanetto, Cen (2010).  The fluctuating component is sourced by the mean EPS collapsed fraction in spherical annyli surrounding each cell.
@@ -19,19 +23,7 @@
 // New in v1.4: To calculate follapse fraction for new parametrization
 void init_21cmMC_arrays() { 
 
-	int i,j,ithread;
-
-    for (ithread=0; ithread < NUMCORES; ithread++){
-    
-      FcollLow_multi_z1_spline_acc[ithread] = gsl_interp_accel_alloc ();
-      FcollLow_multi_z1_spline[ithread] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
-
-      FcollLow_multi_z2_spline_acc[ithread] = gsl_interp_accel_alloc ();  
-      FcollLow_multi_z2_spline[ithread] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
-
-      second_derivs_Fcoll_multi_z1[ithread] = calloc(NSFR_high,sizeof(float));
-      second_derivs_Fcoll_multi_z2[ithread] = calloc(NSFR_high,sizeof(float));
-    }
+	int i,j;
 
 	zpp1_interp_int = calloc(NUM_FILTER_STEPS_FOR_Ts, sizeof(int));
 	zpp2_interp_int = calloc(NUM_FILTER_STEPS_FOR_Ts, sizeof(int));
@@ -105,14 +97,6 @@ void destroy_21cmMC_arrays() {
 	free(Fcollz_SFR_high_table);
 	free(Overdense_high_table);
 	
-    for (ithread=0; ithread < NUMCORES; ithread++){
-      gsl_spline_free (FcollLow_multi_z1_spline[ithread]);
-      gsl_interp_accel_free (FcollLow_multi_z1_spline_acc[ithread]);
-      gsl_spline_free (FcollLow_multi_z2_spline[ithread]);
-      gsl_interp_accel_free (FcollLow_multi_z2_spline_acc[ithread]);
-      free(second_derivs_Fcoll_multi_z1[ithread]);
-      free(second_derivs_Fcoll_multi_z2[ithread]);
-    }
     for (i=0; i < NUM_FILTER_STEPS_FOR_Ts; i++){
       gsl_spline_free (FcollLow_zpp1_spline[i]);
       gsl_interp_accel_free (FcollLow_zpp1_spline_acc[i]);
@@ -153,11 +137,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  time_t start_time, curr_time;
  double J_alpha_threads[NUMCORES], xalpha_threads[NUMCORES], Xheat_threads[NUMCORES],
    Xion_threads[NUMCORES], lower_int_limit;
- float Splined_Fcollzp_mean, Splined_Fcollzpp_X_mean,ION_EFF_FACTOR; // New in v1.4
+ float Splined_Fcollzp_mean, Splined_Fcollzpp_X_mean,ION_EFF_FACTOR,fcoll1,fcoll2,zpp_gridpoint1,zpp_gridpoint2; // New in v1.4
  int RESTART = 0;
- float test1,Fcoll_dum,Fcoll_dum2,fcoll_R_old,fcoll_R_default,delta,
- 	   ave_Fcoll_new,ave_Fcoll,Tave_Fcoll_new,Tave_Fcoll,fcoll1,fcoll2,dum1,dum2; // TEST parameter : delete this after test
- int jj, nn,iii;
  FILE *LOG1;
  /* TEST file */
  //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_NEW_reproduce_original_test3.txt",z);
@@ -236,7 +217,6 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    Mlim_Fesc = Mass_limit_bisection(M_TURN, ALPHA_ESC, F_ESC10);
    ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
    init_21cmMC_arrays(); 
-   init_interpolation();
    //M_MIN = 1e8; //test
  }
 
@@ -648,15 +628,19 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       zpp_interp_table[i] = determine_zpp_min + (determine_zpp_max - determine_zpp_min)*(float)i/((float)zpp_interp_points-1.0);
     }
 
-	// initialise interpolation for the function of FgtrM_st_SFR between redshift
+	/* initialise interpolation of the mean collapse fraction for global reionization.
+	   compute 'FgtrM_st_SFR' corresponding to an array of redshift. */
     initialise_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
     printf("\n Completed initialise Fcoll_spline Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
-	// initialise interpolation for the function of FgtrM_st_SFR between redshift for X-ray heating
+	/* initialise interpolation of the mean collapse fraction with respect to the X-ray heating.
+	   compute 'FgtrM_st_SFR' corresponding to an array of redshift, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
     initialise_Xray_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
     printf("\n Completed initialise Fcoll_spline fro X-ray Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
-	// initialise interpolation for Conditional mass function between redshift and overdensity
+	/* generate a table for interpolation of the collapse fraction with respect to the X-ray heating, as functions of 
+	filtering scale, redshift and overdensity, i.e. f_coll(R,z,delta).
+	   compute the conditional mass function, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
 	initialise_Xray_Fcollz_SFR_Conditional_table(NUM_FILTER_STEPS_FOR_Ts, zpp_interp_table, R_values, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
-	printf("\n Completed initialise conditional mass function = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
+	printf("\n Generated the table of conditional mass function = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
   }
 
   while (zp > REDSHIFT){
@@ -676,7 +660,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
         zpp_edge[i] = prev_zpp - (R_values[i] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
         zpp = (zpp_edge[i]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
 		zpp_table[i] = zpp;
-        // finding interpolation grid point and calculate gradient for interpolation at each zpp.  
+        // Then, find grid points i and i+1 (zpp_table[i] and zpp_table[i+1]) containing a given zpp
+		// and compute gradients for linear interpolation between redshifts.
         zpp1_interp_int[i] = (int)floor((zpp_table[i] - determine_zpp_min)/zpp_bin_width);
         zpp2_interp_int[i] = zpp1_interp_int[i] + 1;
 
@@ -685,7 +670,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
         grad_zpp1[i] = ( zpp_gridpoint2 - zpp_table[i] )/( zpp_gridpoint2 - zpp_gridpoint1 );
         grad_zpp2[i] = ( zpp_table[i] - zpp_gridpoint1 )/( zpp_gridpoint2 - zpp_gridpoint1 );
-		// initalise interpolation tables
+		// initalise interpolation 
         gsl_spline_init(FcollLow_zpp1_spline[i], log10_overdense_low_table, log10_Fcollz_SFR_low_table[i][zpp1_interp_int[i]], NSFR_low);
         spline(Overdense_high_table-1,Fcollz_SFR_high_table[i][zpp1_interp_int[i]]-1,NSFR_high,0,0,second_derivs_Fcoll_zpp1[i]-1); 
         gsl_spline_init(FcollLow_zpp2_spline[i], log10_overdense_low_table, log10_Fcollz_SFR_low_table[i][zpp2_interp_int[i]], NSFR_low);
@@ -761,7 +746,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	// New in v1.4
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
 	  growth_zpp = dicke(zpp);
-      // interpolation for fcoll start - let's make this void and move to ps.c
+      //---------- interpolation for fcoll starts ----------
       if (delNL0[R_ct][box_ct]*growth_zpp < 1.5){
         if (delNL0[R_ct][box_ct]*growth_zpp < -1.) {
           fcoll1 = 0;
@@ -788,8 +773,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
         }    
       }    
       Splined_Fcoll = fcoll1*grad_zpp1[R_ct] + fcoll2*grad_zpp2[R_ct];
-      /* interpolation for fcoll is done */
-	  //Fcollz_Xray_Spline(R_ct, delNL0[R_ct][box_ct]*growth_zpp, zpp_table, zpp1_interp_int, zpp2_interp_int, grad_zpp1, grad_zpp2, &(Splined_Fcoll));
+      //---------- interpolation for fcoll is done ----------
 	  fcoll_R += Splined_Fcoll;
 	} 
 	else {

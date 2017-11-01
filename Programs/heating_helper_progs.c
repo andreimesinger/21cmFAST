@@ -9,9 +9,6 @@
 #define KAPPA_10_NPTS (int) 27
 #define KAPPA_10_elec_NPTS (int) 20
 #define KAPPA_10_pH_NPTS (int) 17
-/* New in v1.4: Number of interpolation points for the interpolation table for z'' 
-				This is the same parameter in 21CMMC */
-//#define zpp_interp_points (int) (400) 
 
 /* Define some global variables; yeah i know it isn't "good practice" but doesn't matter */
 double zpp_edge[NUM_FILTER_STEPS_FOR_Ts], sigma_atR[NUM_FILTER_STEPS_FOR_Ts], sigma_Tmin[NUM_FILTER_STEPS_FOR_Ts], ST_over_PS[NUM_FILTER_STEPS_FOR_Ts], sum_lyn[NUM_FILTER_STEPS_FOR_Ts], R_values[NUM_FILTER_STEPS_FOR_Ts];
@@ -22,10 +19,8 @@ int NO_LIGHT;
 float M_MIN_at_z, M_MIN_at_zp;
 int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY; // New in v1.4
 float F_STAR10,F_ESC10,ALPHA_STAR,ALPHA_ESC,M_TURN,T_AST,Mlim_Fstar,Mlim_Fesc,M_MIN,Splined_Fcoll;//,Splined_Fcollz_mean; // New in v1.4
-int zpp_gridpoint1_int, zpp_gridpoint2_int;//,ithread; // New in v1.4
-float zpp_gridpoint1,zpp_gridpoint2,grad1,grad2,growth_zpp; // New in v1.4
+float growth_zpp; // New in v1.4
 static float determine_zpp_max, determine_zpp_min,zpp_bin_width; // new in v1.4
-float *second_derivs_Fcoll_multi_z1[NUMCORES],*second_derivs_Fcoll_multi_z2[NUMCORES];
 float *second_derivs_Fcoll_zpp1[NUM_FILTER_STEPS_FOR_Ts],*second_derivs_Fcoll_zpp2[NUM_FILTER_STEPS_FOR_Ts];
 int *zpp1_interp_int, *zpp2_interp_int; //New in v1.4 
 float *grad_zpp1,*grad_zpp2,*zpp_interp_table, *zpp_table; //New in v1.4
@@ -34,18 +29,7 @@ gsl_spline *FcollLow_zpp1_spline[NUM_FILTER_STEPS_FOR_Ts];
 gsl_interp_accel *FcollLow_zpp2_spline_acc[NUM_FILTER_STEPS_FOR_Ts];
 gsl_spline *FcollLow_zpp2_spline[NUM_FILTER_STEPS_FOR_Ts];
 
-gsl_interp_accel *FcollLow_multi_z1_spline_acc[NUMCORES];
-gsl_spline *FcollLow_multi_z1_spline[NUMCORES];
-gsl_interp_accel *FcollLow_multi_z2_spline_acc[NUMCORES];
-gsl_spline *FcollLow_multi_z2_spline[NUMCORES];
 int i; //TEST
- /* New in v1.4: This is for test to find Mmin which is the same with the original one. 
-    If the code works, you don't need this parameter.
- */
-/*float mu_for_Ts; 
-float M_MIN_WDM =  M_J_WDM();
-*/
-/* Test parameters end */
 FILE *LOG;
 
 /* initialization routine */
@@ -68,9 +52,6 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 	       double freq_int_ion[], double freq_int_lya[], 
 	       int COMPUTE_Ts, double y[], double deriv[]);
 		   //float Mturn, float ALPHA_STAR, float F_STAR10, float T_AST);
-
-/* New in v1.4: find collapse fraction using interpolation */
-void Fcollz_Xray_Spline(int R_ct, float overdensity, float zpp_table[], int zpp1_interp_int[], int zpp2_interp_int[], float grad_zpp1[], float grad_zpp2[], float *splined_value);
 
 float dfcoll_dz(float z, float Tmin, float del_bias, float sig_bias);
 
@@ -474,45 +455,6 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
   // stuff for marcos
   deriv[3] = dxheat_dzp;
   deriv[4] = dt_dzp*dxion_source_dt;
-}
-
-/* New in v1.4: find collapse fraction using interpolation */
-void Fcollz_Xray_Spline(int R_ct, float overdensity, float zpp_table[], int zpp1_interp_int[], int zpp2_interp_int[], float grad_zpp1[], float grad_zpp2[], float *splined_value){
-// Remember the overdensity is NOT extrapolated to z=0, i.e. overdensity = delta0 x growth factor.
-
-  int i;
-  float fcoll1, fcoll2, returned_value;
-
-  /* interpolation for fcoll start */
-  if (overdensity < 1.5){
-    if (overdensity < -1.) {
-      fcoll1 = 0; 
-      fcoll2 = 0; 
-    }    
-    else {
-      fcoll1 = gsl_spline_eval(FcollLow_zpp1_spline[R_ct], log10(overdensity+1.), FcollLow_zpp1_spline_acc[R_ct]);
-      fcoll1 = pow(10., fcoll1);
-      fcoll2 = gsl_spline_eval(FcollLow_zpp2_spline[R_ct], log10(overdensity+1.), FcollLow_zpp2_spline_acc[R_ct]);
-      fcoll2 = pow(10., fcoll2);
-    }    
-  }    
-  else {
-    if (overdensity < 0.99*Deltac) {
-      // Usage of 0.99*Deltac arises due to the fact that close to the critical density, the collapsed fraction becomes a little unstable
-      // However, such densities should always be collapsed, so just set f_coll to unity. 
-      // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
-      splint(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zpp1_interp_int[R_ct]]-1,second_derivs_Fcoll_zpp1[R_ct]-1,NSFR_high,overdensity,&(fcoll1));
-      splint(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct][zpp2_interp_int[R_ct]]-1,second_derivs_Fcoll_zpp2[R_ct]-1,NSFR_high,overdensity,&(fcoll2));
-    }    
-    else {
-      fcoll1 = 1.;
-      fcoll2 = 1.;
-    }    
-  }    
-  returned_value = fcoll1*grad_zpp1[R_ct] + fcoll2*grad_zpp2[R_ct];
-
-  if (returned_value > 1.) returned_value = 1.;
-  *splined_value = returned_value;
 }
 
 /*

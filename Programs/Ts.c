@@ -139,12 +139,12 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    Xion_threads[NUMCORES], lower_int_limit;
  float Splined_Fcollzp_mean, Splined_Fcollzpp_X_mean,ION_EFF_FACTOR,fcoll1,fcoll2,zpp_gridpoint1,zpp_gridpoint2; // New in v1.4
  int RESTART = 0;
- FILE *LOG1;
+ //FILE *LOG1;
  /* TEST file */
  //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_NEW_reproduce_original_test3.txt",z);
- sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_test5.txt",z);
- LOG1 = fopen(filename, "w");
- fprintf(LOG1, "#  z	<Tk>	<x_e>	<Ts>	filling factor \n",z);
+ //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_test5.txt",z);
+ //LOG1 = fopen(filename, "w");
+ //fprintf(LOG1, "#  z	<Tk>	<x_e>	<Ts>	filling factor \n",z);
 
 
  /*
@@ -987,7 +987,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       zp_ct=0;
       fprintf(stderr, "Writting the intermediate output at zp = %.4f, <Tk>=%f, <x_e>=%e\n", zp, Tk_ave, x_e_ave);
       fprintf(LOG, "Writting the intermediate output at zp = %.4f, <Tk>=%f, <x_e>=%e\n", zp, Tk_ave, x_e_ave);
-	  fprintf(LOG1, "%6.4f  %.5e  %.5e  %.5e  %.5e\n",zp, Tk_ave, x_e_ave, Ts_ave, filling_factor_of_HI_zp); // TEST
+	  //fprintf(LOG1, "%6.4f  %.5e  %.5e  %.5e  %.5e\n",zp, Tk_ave, x_e_ave, Ts_ave, filling_factor_of_HI_zp); // TEST
       fflush(NULL);
 
       // first Tk

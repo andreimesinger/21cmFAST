@@ -372,6 +372,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 		If turn the new parametrization on, this is a free parameter.
 		*/
 	  dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp));
+	  if(isnan(dfcoll)||isinf(dfcoll)) { printf("dfcoll = %.5e\n",dfcoll); exit(0);}
 	}
 	else {
       dfcoll = dfcoll_dz(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct]);

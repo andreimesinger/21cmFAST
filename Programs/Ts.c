@@ -123,7 +123,7 @@ int main(int argc, char ** argv){
   int ithread;
   float *Tk_box, *x_e_box, *Ts, J_star_Lya, dzp, prev_zp, zpp, prev_zpp, prev_R;
   FILE *F, *GLOBAL_EVOL, *OUT;
-  char filename[300];
+  char filename[500];
   float dz, zeta_ion_eff, Tk_BC, xe_BC, nu, zprev, zcurr, curr_delNL0[NUM_FILTER_STEPS_FOR_Ts];
   double *evolve_ans, ans[2], dansdz[5], Tk_ave, J_alpha_ave, xalpha_ave, J_alpha_tot, Xheat_ave,
     Xion_ave;
@@ -142,9 +142,9 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  FILE *LOG1;
  /* TEST file */
  //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_NEW_reproduce_original_test3.txt",z);
- //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_original_full_test3.txt",z);
- //LOG1 = fopen(filename, "w");
- //fprintf(LOG1, "#  z	<Tk>	<x_e>	<Ts>	filling factor \n",z);
+ sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_test5.txt",z);
+ LOG1 = fopen(filename, "w");
+ fprintf(LOG1, "#  z	<Tk>	<x_e>	<Ts>	filling factor \n",z);
 
 
  /*
@@ -514,7 +514,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   else{ // we need to load the evolution files from the intermediate output
     // first Tk
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
-    sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+    sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	}
 	else {
     sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
@@ -543,8 +543,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     }
     // then xe_neutral
 	// New in v1.4
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+    if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
 	}
 	else {
     sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
@@ -987,13 +987,13 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       zp_ct=0;
       fprintf(stderr, "Writting the intermediate output at zp = %.4f, <Tk>=%f, <x_e>=%e\n", zp, Tk_ave, x_e_ave);
       fprintf(LOG, "Writting the intermediate output at zp = %.4f, <Tk>=%f, <x_e>=%e\n", zp, Tk_ave, x_e_ave);
-	  //fprintf(LOG1, "%6.4f  %.5e  %.5e  %.5e  %.5e\n",zp, Tk_ave, x_e_ave, Ts_ave, filling_factor_of_HI_zp); // TEST
+	  fprintf(LOG1, "%6.4f  %.5e  %.5e  %.5e  %.5e\n",zp, Tk_ave, x_e_ave, Ts_ave, filling_factor_of_HI_zp); // TEST
       fflush(NULL);
 
       // first Tk
 	    // New v1.4
 	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+      sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	  }
 	  else {
       sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
@@ -1012,7 +1012,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       // then xe_neutral
 	    // New in v1.4
 	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	  }
 	  else {
       sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);

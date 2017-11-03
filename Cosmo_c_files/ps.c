@@ -1573,6 +1573,7 @@ void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], 
     double overdense_val;
     double overdense_large_high = Deltac, overdense_large_low = 1.5;
     double overdense_small_high = 1.5, overdense_small_low = -1. + 9e-8;
+	double overdense_low_table[NSFR_low];
 	double Mmin,Mmax;
     int i,j,k;
     int Nfilter = n;
@@ -1585,6 +1586,7 @@ void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], 
     for (i=0; i<NSFR_low; i++) {
       overdense_val = log10(1. + overdense_small_low) + (double)i/((double)NSFR_low-1.)*(log10(1.+overdense_small_high)-log10(1.+overdense_small_low));
       log10_overdense_low_table[i] = overdense_val;
+	  overdense_low_table[i] = pow(10.,log10_overdense_low_table[i]);
     }
     for (i=0; i<NSFR_high;i++) {
       Overdense_high_table[i] = overdense_large_low + (float)i/((float)NSFR_high-1.)*(overdense_large_high - overdense_large_low);
@@ -1596,7 +1598,7 @@ void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], 
       for (j=0; j<zpp_interp_points; j++) {
         initialiseGL_FcollSFR(NGL_SFR, Mmin, Mmax);
         for (i=0; i<NSFR_low; i++){
-            log10_Fcollz_SFR_low_table[k][j][i] = log10(GaussLegendreQuad_FcollSFR(NGL_SFR,z[j],log(Mmax),Deltac,pow(10.,log10_overdense_low_table[i])-1.,MassTurnover,Alpha_star,0.,Fstar10,1.,Mlim_Fstar,0.));
+            log10_Fcollz_SFR_low_table[k][j][i] = log10(GaussLegendreQuad_FcollSFR(NGL_SFR,z[j],log(Mmax),Deltac,overdense_low_table[i]-1.,MassTurnover,Alpha_star,0.,Fstar10,1.,Mlim_Fstar,0.));
             if(log10_Fcollz_SFR_low_table[k][j][i] < -40.) log10_Fcollz_SFR_low_table[k][j][i] = -40.;
         }
 

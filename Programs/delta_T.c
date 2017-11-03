@@ -78,27 +78,8 @@ int main(int argc, char ** argv){
   //strtok(filename, "f");
   token = strtok(filename, "f");
   nf = atof(strtok(NULL, "_"));
-  if (argc == (4+arg_offset)){
-    // get zetaX and HII filter from the filename
-    strcpy(filename, argv[3+arg_offset]);
-    token = strtok(filename, "X");
-    curr_zetaX = atof(strtok(NULL, "_"));
-    token = strtok(NULL, "X");
-    curr_alphaX = atof(strtok(NULL, "_"));
-    token = strtok(NULL, "X");
-    curr_MminX = atof(strtok(NULL, "_"));
-    strcpy(filename, argv[3+arg_offset]);
-    token = strtok(filename, "P");
-    token = strtok(NULL, "p");
-    curr_Pop = atoi(strtok(NULL, "_"));
-    if (curr_Pop>4){curr_Pop=2;} // due to a previous typo
-  }
-  else{
-    curr_zetaX = -1;
-    curr_alphaX = -1;
-    curr_MminX = -1;
-    curr_Pop = -1;
-  }
+
+  
   // initialize power spectrum 
   init_ps();
   growth_factor = dicke(REDSHIFT); // normalized to 1 at z=0
@@ -274,38 +255,9 @@ int main(int argc, char ** argv){
   }
 
 
-  // now write out the delta_T box
-  if (!T_USE_VELOCITIES){
-    switch(FIND_BUBBLE_ALGORITHM){
-    case 2: 
-	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-        if (USE_HALO_FIELD)
-	    sprintf(filename, "../Boxes/delta_T_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-        else
-	    sprintf(filename, "../Boxes/delta_T_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-	  } 
-      else {
-        if (USE_HALO_FIELD)
-  	    sprintf(filename, "../Boxes/delta_T_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-        else
-  	    sprintf(filename, "../Boxes/delta_T_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-  	  }
-      break;
-
-    default:
-	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-        if (USE_HALO_FIELD)
-	    sprintf(filename, "../Boxes/sphere_delta_T_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-        else
-	    sprintf(filename, "../Boxes/sphere_delta_T_no_halos_SFR_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-	  }
-	  else {
-        if (USE_HALO_FIELD)
-	    sprintf(filename, "../Boxes/sphere_delta_T_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX,ave, curr_Pop, HII_DIM, BOX_LEN);
-        else
-	    sprintf(filename, "../Boxes/sphere_delta_T_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-	  }
-    }
+    // check if we need to correct for velocities
+  if (!T_USE_VELOCITIES){ //  we can stop here and print
+    sprintf(filename, "../Boxes/delta_T_z%06.2f_nf%f_useTs%i_%i_%.0fMpc", REDSHIFT, nf, USE_TS_IN_21CM, HII_DIM, BOX_LEN);
     F = fopen(filename, "wb");
     fprintf(stderr, "\nWritting output delta_T box: %s\n", filename);
     if (mod_fwrite(delta_T, sizeof(float)*HII_TOT_NUM_PIXELS, 1, F)!=1){
@@ -317,6 +269,7 @@ int main(int argc, char ** argv){
     max = -1;
     min = 1e3;
     ave = 0;
+ 
 
   // let's take the derivative in k-space
   plan = fftwf_plan_dft_r2c_3d(HII_DIM, HII_DIM, HII_DIM, (float *)v, (fftwf_complex *)v, FFTW_ESTIMATE);
@@ -402,34 +355,7 @@ int main(int argc, char ** argv){
 
   
   // now write out the delta_T box with velocity correction
-  if(FIND_BUBBLE_ALGORITHM==2){
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      if (USE_HALO_FIELD)
-        sprintf(filename, "../Boxes/delta_T_v%i_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-      else
-        sprintf(filename, "../Boxes/delta_T_SFR_v%i_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-	}
-	else {
-      if (USE_HALO_FIELD)
-        sprintf(filename, "../Boxes/delta_T_v%i_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-      else
-        sprintf(filename, "../Boxes/delta_T_v%i_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-	}
-  }
-  else{
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      if (USE_HALO_FIELD)
-        sprintf(filename, "../Boxes/sphere_delta_T_v%i_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX,  ave, curr_Pop, HII_DIM, BOX_LEN);
-      else
-        sprintf(filename, "../Boxes/sphere_delta_T_SFR_v%i_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX,  curr_alphaX, curr_MminX, ave,  curr_Pop, HII_DIM, BOX_LEN);
-	}
-	else{
-      if (USE_HALO_FIELD)
-        sprintf(filename, "../Boxes/sphere_delta_T_v%i_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX,  ave, curr_Pop, HII_DIM, BOX_LEN);
-      else
-        sprintf(filename, "../Boxes/sphere_delta_T_v%i_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX,  curr_alphaX, curr_MminX, ave,  curr_Pop, HII_DIM, BOX_LEN);
-	}
-  }
+  sprintf(filename, "../Boxes/delta_T_v%i_z%06.2f_nf%f_useTs%i_%i_%.0fMpc", VELOCITY_COMPONENT, REDSHIFT, nf, USE_TS_IN_21CM, HII_DIM, BOX_LEN);
   F = fopen(filename, "wb");
   fprintf(stderr, "Writting output delta_T box: %s\n", filename);
   if (mod_fwrite(delta_T, sizeof(float)*HII_TOT_NUM_PIXELS, 1, F)!=1){
@@ -552,34 +478,11 @@ int main(int argc, char ** argv){
 
   // now lets print out the k bins
   if (T_USE_VELOCITIES){
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      if (USE_HALO_FIELD)
-        sprintf(filename, "%s/ps_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc_v%i", psoutputdir,REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN, VELOCITY_COMPONENT);
-      else
-        sprintf(filename, "%s/ps_no_halos_SFR_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc_v%i", psoutputdir,REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN, VELOCITY_COMPONENT);
-	}
-	else{
-      if (USE_HALO_FIELD)
-        sprintf(filename, "%s/ps_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc_v%i", psoutputdir,REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN, VELOCITY_COMPONENT);
-      else
-        sprintf(filename, "%s/ps_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc_v%i", psoutputdir,REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN, VELOCITY_COMPONENT);
-	}
+    sprintf(filename, "%s/ps_z%06.2f_nf%f_useTs%i_aveTb%06.2f_%i_%.0fMpc_v%i", psoutputdir, REDSHIFT, nf, USE_TS_IN_21CM, ave, HII_DIM, BOX_LEN, VELOCITY_COMPONENT);
   }
   else{
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-      if (USE_HALO_FIELD)
-        sprintf(filename, "%s/ps_nov_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", psoutputdir,REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-      else
-        sprintf(filename, "%s/ps_SFR_nov_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MturnX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", psoutputdir,REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-	}
-	else {
-      if (USE_HALO_FIELD)
-        sprintf(filename, "%s/ps_nov_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", psoutputdir,REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-      else
-        sprintf(filename, "%s/ps_nov_no_halos_z%06.2f_nf%f_useTs%i_zetaX%.1e_alphaX%.1f_MminX%.1e_aveTb%06.2f_Pop%i_%i_%.0fMpc", psoutputdir,REDSHIFT, nf, USE_TS_IN_21CM, curr_zetaX, curr_alphaX, curr_MminX, ave, curr_Pop, HII_DIM, BOX_LEN);
-	}
+    sprintf(filename, "%s/ps_z%06.2f_nf%f_useTs%i_aveTb%06.2f_%i_%.0fMpc", psoutputdir, REDSHIFT, nf, USE_TS_IN_21CM, ave, HII_DIM, BOX_LEN);
   }
-
   F = fopen(filename, "w");
   if (!F){
     fprintf(stderr, "delta_T.c: Couldn't open file %s for writting!\n", filename);

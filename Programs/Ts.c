@@ -138,13 +138,14 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  double J_alpha_threads[NUMCORES], xalpha_threads[NUMCORES], Xheat_threads[NUMCORES],
    Xion_threads[NUMCORES], lower_int_limit;
  float Splined_Fcollzp_mean, Splined_Fcollzpp_X_mean,ION_EFF_FACTOR,fcoll1,fcoll2,zpp_gridpoint1,zpp_gridpoint2; // New in v1.4
+ double Luminosity_conversion_factor;
  int RESTART = 0;
  //FILE *LOG1;
  /* TEST file */
  //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_NEW_reproduce_original_test3.txt",z);
- //sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_test5.txt",z);
- //LOG1 = fopen(filename, "w");
- //fprintf(LOG1, "#  z	<Tk>	<x_e>	<Ts>	filling factor \n",z);
+// sprintf(filename, "/Users/jaehongpark/Work/project01/data/Tk_x_e_test5.txt",z);
+// LOG1 = fopen(filename, "w");
+// fprintf(LOG1, "#  z	<Tk>	<x_e>	<Ts>	filling factor \n",z);
 
 
  /*
@@ -172,7 +173,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  }
  else {
    printf("\nNOTE: 'F_STAR10', 'ALPHA_STAR', 'F_ESC10', 'ALPHA_ESC' and 'T_AST' MUST be the same in 'find_HII_bubble.c'. \n");
-   if (argc  == 9) {
+   if (argc  == 10) {
      RESTART = 1;
      zp = atof(argv[2]);
      F_STAR10 = atof(argv[3]);
@@ -181,14 +182,16 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      ALPHA_ESC = atof(argv[6]);
      M_TURN = atof(argv[7]); 
      T_AST = atof(argv[8]);
+     X_LUMINOSITY = atof(argv[9]);	 
    }
-   else if (argc == 8) {
+   else if (argc == 9) {
      F_STAR10 = atof(argv[2]);
      ALPHA_STAR = atof(argv[3]);
      F_ESC10 = atof(argv[4]);
      ALPHA_ESC = atof(argv[5]);
      M_TURN = atof(argv[6]);
      T_AST = atof(argv[7]);
+     X_LUMINOSITY = atof(argv[8]);	 
    }
    else if (argc == 3) {
      RESTART = 1;
@@ -199,6 +202,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      ALPHA_ESC = ESC_PL;
      M_TURN = M_TURNOVER; 
      T_AST = t_STAR;
+     X_LUMINOSITY = L_X;	 
    }
    else if (argc == 2) {
      F_STAR10 = STELLAR_BARYON_FRAC;
@@ -207,9 +211,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      ALPHA_ESC = ESC_PL;
      M_TURN = M_TURNOVER; 
      T_AST = t_STAR;
+     X_LUMINOSITY = L_X;	 
    }
    else {
-     fprintf(stderr, "Usage: Ts <REDSHIFT> [reload zp redshift] [<F_STAR10> <ALPHA_STAR> <T_AST>] \nAborting...\n");
+     fprintf(stderr, "Usage: Ts <REDSHIFT> [reload zp redshift] [<f_star10> <alpha_star> <f_esc10> <alpha_esc> <M_turn> <t_star> <X_luminosity>] \nAborting...\n");
      return -1;
    }
    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
@@ -844,13 +849,34 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     dgrowth_factor_dzp = ddicke_dz(zp);
     dt_dzp = dtdz(zp);
 	// New in v1.4
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
-    const_zp_prefactor = ZETA_X * X_RAY_SPEC_INDEX / NU_X_THRESH * C
-      * F_STAR10 * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
+    // Conversion of the input bolometric luminosity to a ZETA_X, as used to be used in Ts.c
+    // Conversion here means the code otherwise remains the same as the original Ts.c
+    if(fabs(X_RAY_SPEC_INDEX - 1.0) < 0.000001) {
+        Luminosity_conversion_factor = NU_X_THRESH * log( NU_X_BAND_MAX/NU_X_THRESH );
+        Luminosity_conversion_factor = 1./Luminosity_conversion_factor;
+    }    
+    else {
+        Luminosity_conversion_factor = pow( NU_X_BAND_MAX , 1. - X_RAY_SPEC_INDEX ) - pow( NU_X_THRESH , 1. - X_RAY_SPEC_INDEX ) ;
+        Luminosity_conversion_factor = 1./Luminosity_conversion_factor;
+        Luminosity_conversion_factor *= pow( NU_X_THRESH, - X_RAY_SPEC_INDEX )*(1 - X_RAY_SPEC_INDEX);
+    }    
+    // Finally, convert to the correct units. NU_over_EV*hplank as only want to divide by eV -> erg (owing to the definition of Luminosity)
+    Luminosity_conversion_factor *= (3.1556226e7)/(hplank);
+
+	X_LUMINOSITY = pow(10.,X_LUMINOSITY);
+	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+	const_zp_prefactor = ( X_LUMINOSITY * Luminosity_conversion_factor ) / NU_X_THRESH * C 
+						 * F_STAR10 * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
+	//This line below is kept purely for reference w.r.t to the original 21cmFAST
+    //const_zp_prefactor = ZETA_X * X_RAY_SPEC_INDEX / NU_X_THRESH * C
+    //  * F_STAR10 * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
 	}
 	else {
-    const_zp_prefactor = ZETA_X * X_RAY_SPEC_INDEX / NU_X_THRESH * C
-      * F_STAR * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
+	const_zp_prefactor = ( X_LUMINOSITY * Luminosity_conversion_factor ) / NU_X_THRESH * C 
+						 * F_STAR * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
+	//This line below is kept purely for reference w.r.t to the original 21cmFAST
+    //const_zp_prefactor = ZETA_X * X_RAY_SPEC_INDEX / NU_X_THRESH * C
+    //  * F_STAR * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
 	}
 
 

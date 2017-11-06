@@ -185,7 +185,7 @@ int main(int argc, char ** argv){
   fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
   fflush(NULL);
 
-  sprintf(cmnd, "ls ../Boxes/delta_T_%i_%.0fMpc > ../Redshift_interpolate_filelists/delta_T_%i_%.0fMpc", 
+  sprintf(cmnd, "ls ../Boxes/delta_T_*%i_%.0fMpc > ../Redshift_interpolate_filelists/delta_T_%i_%.0fMpc", 
 	  HII_DIM, BOX_LEN, HII_DIM, BOX_LEN);
   system(cmnd);
   sprintf(cmnd, "redshift_interpolate_boxes 0 ../Redshift_interpolate_filelists/delta_T_%i_%.0fMpc", HII_DIM, BOX_LEN);

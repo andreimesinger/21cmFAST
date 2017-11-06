@@ -9,7 +9,7 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
 /*
   Flag specifying whether one wants to calculate the spin temperature or just assume (Ts>>Tk)
 */
-#define USE_TS_IN_21CM (int) (0)
+#define USE_TS_IN_21CM (int) (1)
 
 
 /*
@@ -18,11 +18,20 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
 */
 #define ZETA_X (double) (2.0e56) // 2e56 ~ 0.3 X-ray photons per stellar baryon
 
+/*
+  Soft band X-ray luminosity, L_X. Used for determining the number of X-ray photons produced per stellar baryon.
+  In v1.4, the old ZETA_X is replaced with a soft-band luminosity L_X. The soft band luminosity now determines the normalisation, 
+ and is available as a free parameter. This is defined as the 2keV luminosity, hence NU_X_BAND_MAX = 2000.00.
+  Defined as log10(L_X). E.g. 40 = log10(10^40)
+*/
+#define L_X (double) (41)
+#define NU_X_BAND_MAX (double) (2000*NU_over_EV)
+
 
 /*
   The fraction of baryons converted to stars
 */
-#define F_STAR (double) (0.05)
+#define F_STAR (double) (0.03)
 
 
 /*

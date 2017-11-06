@@ -39,6 +39,16 @@ int main(int argc, char ** argv){
   system("mkdir ../Output_files/Deldel_T_power_spec");
   system("mkdir ../Redshift_interpolate_filelists");
   //  system("mkdir ../Lighttravel_filelists");
+
+  // remove some of the previous (astro) files which might conflict with current run
+  system("rm ../Boxes/Ts_evolution/*");
+  system("rm ../Boxes/Ts_*");
+  system("rm ../Boxes/delta_T_*");
+  system("rm ../Boxes/xH_*");
+  system("rm ../Boxes/Nrec_*");
+  system("rm ../Boxes/z_first*");
+  system("rm ../Output_files/Deldel_T_power_spec/*");  
+
   init_ps();
 
   // open log file

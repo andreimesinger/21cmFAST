@@ -24,14 +24,14 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
  and is available as a free parameter. This is defined as the 2keV luminosity, hence NU_X_BAND_MAX = 2000.00.
   Defined as log10(L_X). E.g. 40 = log10(10^40)
 */
-#define L_X (double) (41)
+#define L_X (double) (40)
 #define NU_X_BAND_MAX (double) (2000*NU_over_EV)
 
 
 /*
   The fraction of baryons converted to stars
 */
-#define F_STAR (double) (0.03)
+#define F_STAR (double) (0.05)
 
 
 /*

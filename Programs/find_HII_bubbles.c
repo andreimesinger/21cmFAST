@@ -5,7 +5,7 @@
   USAGE: find_HII_bubbles [-p <num of processors>] <redshift> [<previous redshift>]
   [<stellar fraction for 10^10 Msun halos> <power law index for stellar fraction halo mass scaling> 
    <escape fraction for 10^10 Msun halos> <power law index for escape fraction halo mass scaling>
-   <turn-over scale for the duty cycle of galaxies, in units of halo mass>]
+   <turn-over scale for the duty cycle of galaxies, in units of halo mass>] [<Soft band X-ray luminosity>]
 
    final optional parameter is MFP (depricated in v1.4)
 
@@ -60,7 +60,7 @@ FILE *LOG;
 unsigned long long SAMPLING_INTERVAL = (((unsigned long long)(HII_TOT_NUM_PIXELS/1.0e6)) + 1); //used to sample density field to compute mean collapsed fraction
 
 int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, float * F_STAR10, 
-					float * ALPHA_STAR, float * F_ESC10, float * ALPHA_ESC, float * M_TURN, float * T_AST, float * MFP, 
+					float * ALPHA_STAR, float * F_ESC10, float * ALPHA_ESC, float * M_TURN, float * T_AST, double * X_LUMINOSITY, float * MFP, 
 					float * REDSHIFT, float * PREV_REDSHIFT){
 
   int min_argc = 2;
@@ -89,18 +89,20 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
       *ALPHA_ESC = ESC_PL;
       *M_TURN = M_TURNOVER;
       *T_AST = t_STAR;
+	  *X_LUMINOSITY = 0;
 	}
     else{ return 0;} // format is not allowed
   } 
   else {
     if (USE_TS_IN_21CM) {
-      if (argc == (*arg_offset + min_argc+6)){
+      if (argc == (*arg_offset + min_argc+7)){
         *F_STAR10 = atof(argv[*arg_offset + min_argc]);
         *ALPHA_STAR = atof(argv[*arg_offset + min_argc+1]);
         *F_ESC10 = atof(argv[*arg_offset + min_argc+2]);
         *ALPHA_ESC = atof(argv[*arg_offset + min_argc+3]);
         *M_TURN = atof(argv[*arg_offset + min_argc+4]); // Input value M_TURN
 		*T_AST = atof(argv[*arg_offset + min_argc+5]);
+		*X_LUMINOSITY = pow(10.,atof(argv[*arg_offset + min_argc+6]));
       }
       else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
         *F_STAR10 = STELLAR_BARYON_FRAC;         // We need to set the parameters with some standard values later on.
@@ -109,6 +111,7 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
         *ALPHA_ESC = ESC_PL;
         *M_TURN = M_TURNOVER;
 		*T_AST = t_STAR;
+		*X_LUMINOSITY = pow(10.,L_X);
       }
       else{ return 0;} // format is not allowed
 	}
@@ -120,6 +123,7 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
         *ALPHA_ESC = atof(argv[*arg_offset + min_argc+3]);
         *M_TURN = atof(argv[*arg_offset + min_argc+4]); // Input value M_TURN
 		*T_AST = t_STAR;
+		*X_LUMINOSITY = 0;
       }
       else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
         *F_STAR10 = STELLAR_BARYON_FRAC;         // We need to set the parameters with some standard values later on.
@@ -128,6 +132,7 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
         *ALPHA_ESC = ESC_PL;
         *M_TURN = M_TURNOVER;
 		*T_AST = t_STAR;
+		*X_LUMINOSITY = 0;
       }
       else{ return 0;} // format is not allowed
 	}
@@ -145,8 +150,8 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
   else
     *PREV_REDSHIFT = *REDSHIFT+0.2; // dummy variable which is not used
 
-   fprintf(stderr, "find_HII_bubbles: command line parameters are as follows\nnum threads=%i, f_star10=%g, alpha_satr=%g, f_esc10=%g, alpha_esc=%g, Mturn=%g, t_star=%g, z=%g, prev z=%g\n",
-	  *num_th, *F_STAR10, *ALPHA_STAR, *F_ESC10, *ALPHA_ESC, *M_TURN, *T_AST, *REDSHIFT, *PREV_REDSHIFT);
+   fprintf(stderr, "find_HII_bubbles: command line parameters are as follows\nnum threads=%i, f_star10=%g, alpha_satr=%g, f_esc10=%g, alpha_esc=%g, Mturn=%g, t_star=%g, L_X=%g, z=%g, prev z=%g\n",
+	  *num_th, *F_STAR10, *ALPHA_STAR, *F_ESC10, *ALPHA_ESC, *M_TURN, *T_AST, *X_LUMINOSITY, *REDSHIFT, *PREV_REDSHIFT);
 
   return 1;
 }
@@ -173,6 +178,7 @@ int main(int argc, char ** argv){
   double t_ast, dfcolldt, Gamma_R_prefactor, rec;
   float nua, dnua, temparg, Gamma_R, z_eff;
   float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, Mlim_Fstar, Mlim_Fesc; //New in v1.4
+  double X_LUMINOSITY;
   float global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
   *error_message = '\0';
@@ -196,7 +202,7 @@ int main(int argc, char ** argv){
   // PARSE COMMAND LINE ARGUMENTS
   if(SHARP_CUTOFF){
     if( !parse_arguments(argc, argv, &num_th, &arg_offset, &F_STAR10, &ALPHA_STAR, &F_ESC10,
-		       &ALPHA_ESC, &M_TURN, &T_AST, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
+		       &ALPHA_ESC, &M_TURN, &T_AST, &X_LUMINOSITY, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
         fprintf(stderr, "find_HII_bubbles <redshift> [<previous redshift>] \n \
             Aborting...\n                               \
         Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\nAborting...\n");
@@ -206,7 +212,7 @@ int main(int argc, char ** argv){
   else {
     HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
     if( !parse_arguments(argc, argv, &num_th, &arg_offset, &F_STAR10, &ALPHA_STAR, &F_ESC10,
-		       &ALPHA_ESC, &M_TURN, &T_AST, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
+		       &ALPHA_ESC, &M_TURN, &T_AST, &X_LUMINOSITY, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
         fprintf(stderr, "find_HII_bubbles <redshift> [<previous redshift>] \n \
         additional optional arguments: <f_star10> <alpha,star> <f_esc10> <alpha,esc> <M_TURNOVER>] [<t_star>]\n \
         Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\n \
@@ -312,11 +318,11 @@ int main(int argc, char ** argv){
 
       if (USE_TS_IN_21CM){ // use the x_e box to set residuals
 		if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
-    	  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
+    	  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
 		  printf("filename: %s\n",filename);
 		}
 		else {
-		  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
+		  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
 		}
 	if (!(F = fopen(filename, "rb"))){
 	  printf("here 1\n");
@@ -407,10 +413,10 @@ int main(int argc, char ** argv){
 
       // and read-in
 	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
-	    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+	    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	  }
 	  else {
-		sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
+		sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
 	  }
       if (!(F = fopen(filename, "rb"))){
 	strcpy(error_message, "find_HII_bubbles.c: Unable to open x_e file at ");

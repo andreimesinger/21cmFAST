@@ -18,7 +18,7 @@ double growth_factor_zp, dgrowth_factor_dzp, PS_ION_EFF;
 int NO_LIGHT;
 float M_MIN_at_z, M_MIN_at_zp;
 int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY; // New in v1.4
-float F_STAR10,F_ESC10,ALPHA_STAR,ALPHA_ESC,M_TURN,T_AST,Mlim_Fstar,Mlim_Fesc,M_MIN,Splined_Fcoll;//,Splined_Fcollz_mean; // New in v1.4
+float F_STAR10,F_ESC10,ALPHA_STAR,ALPHA_ESC,M_TURN,T_AST,Mlim_Fstar,Mlim_Fesc,M_MIN,X_LUMINOSITY,Splined_Fcoll;//,Splined_Fcollz_mean; // New in v1.4
 float growth_zpp; // New in v1.4
 static float determine_zpp_max, determine_zpp_min,zpp_bin_width; // new in v1.4
 float *second_derivs_Fcoll_zpp1[NUM_FILTER_STEPS_FOR_Ts],*second_derivs_Fcoll_zpp2[NUM_FILTER_STEPS_FOR_Ts];

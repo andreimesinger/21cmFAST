@@ -310,11 +310,11 @@ int main(int argc, char ** argv){
   }
     /**********  CHECK IF WE ARE IN THE DARK AGES ******************************/
     // lets check if we are going to bother with computing the inhmogeneous field at all...
-    if ((mean_f_coll_st*ION_EFF_FACTOR < HII_ROUND_ERR)){ // way too small to ionize anything...//New in v1.4: Need to be elaborated
+    if ((mean_f_coll_st*ION_EFF_FACTOR < HII_ROUND_ERR)){ // way too small to ionize anything...//New in v1.4
       fprintf(stderr, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
-                       I will just declare everything to be neutral\n", mean_f_coll_st, f_coll_crit);
+                       I will just declare everything to be neutral\n", mean_f_coll_st, 1./ION_EFF_FACTOR);
       fprintf(LOG, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
-                    I will just declare everything to be neutral\n", mean_f_coll_st, f_coll_crit);
+                    I will just declare everything to be neutral\n", mean_f_coll_st, 1./ION_EFF_FACTOR);
 
       if (USE_TS_IN_21CM){ // use the x_e box to set residuals
 		if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
@@ -325,7 +325,6 @@ int main(int argc, char ** argv){
 		  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
 		}
 	if (!(F = fopen(filename, "rb"))){
-	  printf("here 1\n");
 	  fprintf(stderr, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fprintf(LOG, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
@@ -342,6 +341,7 @@ int main(int argc, char ** argv){
 	  global_xH += xH[ct];
 	}
 	fclose(F);
+	F = NULL;
 	global_xH /= (double)HII_TOT_NUM_PIXELS;
       }
       else{
@@ -372,7 +372,7 @@ int main(int argc, char ** argv){
         }
 	    break;
       default:
-	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0){
+	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){
 	    if (USE_HALO_FIELD)
 		  sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
 		else
@@ -392,7 +392,8 @@ int main(int argc, char ** argv){
 	fprintf(stderr, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
 	fprintf(LOG, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
       }
-      free_ps(); fclose(F); fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
+      free_ps(); fclose(F); F = NULL; fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
+	  free(Fcoll);
       if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();} return (int) (global_xH * 100);
     }
 
@@ -435,6 +436,7 @@ int main(int argc, char ** argv){
 	}
       }
       fclose(F);
+	  F = NULL;
     }
 
 
@@ -468,6 +470,7 @@ int main(int argc, char ** argv){
 	fscanf(F, "%e %f %f %f", &mass, &xf, &yf, &zf);
       }
       fclose(F);
+	  F = NULL;
     } // end of the USE_HALO_FIELD option
 
     
@@ -500,6 +503,7 @@ int main(int argc, char ** argv){
       }
     }
     fclose(F);
+    F = NULL;
 
     // ALLOCATE AND INITIALIZE ADDITIONAL BOXES NEEDED TO KEEP TRACK OF RECOMBINATIONS (Sobacchi & Mesinger 2014; NEW IN v1.3)
     if (INHOMO_RECO){ //  flag in ANAL_PARAMS.H to determine whether to compute recombinations or not
@@ -602,6 +606,7 @@ int main(int argc, char ** argv){
       fftwf_free(xe_unfiltered);
       fftwf_free(N_rec_unfiltered);
       fftwf_free(N_rec_filtered);
+	  free(Fcoll);
       if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();}
       
       return -1;
@@ -937,6 +942,7 @@ int main(int argc, char ** argv){
 	  }
 	}
 	fclose(F);
+    F = NULL;
       }
     
       // Write z_re in the box
@@ -951,6 +957,7 @@ int main(int argc, char ** argv){
 	  goto CLEANUP;
 	}
 	fclose(F);
+	F = NULL;
       }
 
       // Gamma12 box
@@ -965,6 +972,7 @@ int main(int argc, char ** argv){
 	  goto CLEANUP;
 	}
 	fclose(F);
+	F = NULL;
       }
     }
 
@@ -1014,6 +1022,7 @@ int main(int argc, char ** argv){
             global_xH = -1;
         }
         fclose(F);
+	    F = NULL;
     }
   
     /* TEST computing time */

@@ -62,18 +62,18 @@ int main(int argc, char ** argv){
 
   fprintf(stderr, "Calling init to set up the initial conditions\n");
   fprintf(LOG, "Calling init to set up the initial conditions\n");
-  system("./init"); // you only need this call once per realization
+  //system("./init"); // you only need this call once per realization
 
   Z = ZLOW*1.0001; // match rounding convention from Ts.c
 
    // call Ts on the lowest redshift
   if (USE_TS_IN_21CM){
-    sprintf(cmnd, "./perturb_field %.2f", Z);
-    time(&curr_time);
-    fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
-    fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
-    fflush(NULL);
-    system(cmnd);
+    //sprintf(cmnd, "./perturb_field %.2f", Z);
+    //time(&curr_time);
+    //fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
+    //fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
+    //fflush(NULL);
+    //system(cmnd);
     
     sprintf(cmnd, "./Ts %.2f", Z);
     time(&curr_time);
@@ -116,12 +116,12 @@ int main(int argc, char ** argv){
     }
 
     // shift density field and update velocity field
-    sprintf(cmnd, "./perturb_field %.2f", Z);
-    time(&curr_time);
-    fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
-    fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
-    fflush(NULL);
-    system(cmnd);
+    //sprintf(cmnd, "./perturb_field %.2f", Z);
+    //time(&curr_time);
+    //fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
+    //fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
+    //fflush(NULL);
+    //system(cmnd);
     // end of solely redshift dependent things, now do ionization stuff
 
 
@@ -214,6 +214,18 @@ int main(int argc, char ** argv){
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
     fflush(NULL);
   }
+
+  sprintf(cmnd, "./extract_delTps.pl 0.1 ../Output_files/Deldel_T_power_spec/ps_z0* > Power_k0.1");
+  system(cmnd);
+  fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
+  fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
+  fflush(NULL);
+
+  sprintf(cmnd, "./redshift_interpolate_boxes 0 ../Redshift_interpolate_filelists/delta_T_200_300Mpc");
+  system(cmnd);
+  fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
+  fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
+  fflush(NULL);
   
   fclose(LOG);
   return 0;

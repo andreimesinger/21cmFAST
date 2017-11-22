@@ -144,14 +144,6 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  int RESTART = 0;
 
 
- /*
- printf("Ratio of the cross-sections: %e\n Wieghted by the number density: %e\n", 
-	HeI_ion_crosssec(HeI_NUIONIZATION)/HI_ion_crosssec(HeI_NUIONIZATION),
-	He_No*HeI_ion_crosssec(HeI_NUIONIZATION)/(No*HI_ion_crosssec(HeI_NUIONIZATION)) 
-);
-	
- return 0;
- */
  /**********  BEGIN INITIALIZATION   **************************************/
  //New in v1.4
  if (SHARP_CUTOFF) {
@@ -164,12 +156,9 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      return -1;
    }
    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
-   M_MIN = M_TURNOVER;
    X_LUMINOSITY = pow(10.,L_X);
-   //M_MIN = 1e8; // TEST
  }
  else {
-   printf("\nNOTE: 'F_STAR10', 'ALPHA_STAR', 'F_ESC10', 'ALPHA_ESC' and 'T_AST' MUST be the same in 'find_HII_bubble.c'. \n");
    if (argc  == 10) {
      RESTART = 1;
      zp = atof(argv[2]);
@@ -215,13 +204,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      return -1;
    }
    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
-   Mlim_Fstar = Mass_limit_bisection(M_TURN, ALPHA_STAR, F_STAR10);
-   Mlim_Fesc = Mass_limit_bisection(M_TURN, ALPHA_ESC, F_ESC10);
    ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
    init_21cmMC_arrays(); 
-   //M_MIN = 1e8; //test
  }
-
+ M_MIN = M_TURNOVER;
  REDSHIFT = atof(argv[1]);
  system("mkdir ../Log_files");
  system("mkdir ../Output_files");
@@ -232,18 +218,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  init_ps();
  omp_set_num_threads(NUMCORES);
  growth_factor_z = dicke(REDSHIFT);
-
-/* if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR)) {// use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
-    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
-	Mlim_Fstar = Mass_limit_bisection(M_MIN,ALPHA_STAR,F_STAR10);
-	Mlim_Fesc = Mass_limit_bisection(M_TURN, ALPHA_ESC, F_ESC10);
-	ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
-    init_21cmMC_arrays(); 
-    init_interpolation();
- }*/
  
- //set the minimum ionizing source mass //*** New in v1.4 
- //if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) M_MIN = M_TURN/50.; // Turn this line on after test!!!
   
  // open log file
  if (!(LOG = fopen("../Log_files/Ts_log", "w") ) ){
@@ -330,7 +305,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
      GLOBAL_EVOL = fopen(filename, "w");
  }
  else {
- sprintf(filename, "../Output_files/Ts_outs/global_evolution_zetaIon%.2f_Nsteps%i_zprimestepfactor%.3f_L_X%.1e_alphaX%.1f_TvirminX%.1e_Pop%i_%i_%.0fMpc", HII_EFF_FACTOR, NUM_FILTER_STEPS_FOR_Ts, ZPRIME_STEP_FACTOR, X_LUMINOSITY, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+ sprintf(filename, "../Output_files/Ts_outs/global_evolution_zetaIon%.2f_Nsteps%i_zprimestepfactor%.3f_L_X%.1e_alphaX%.1f_TvirminX%.1e_Pop%i_%i_%.0fMpc", HII_EFF_FACTOR, NUM_FILTER_STEPS_FOR_Ts, ZPRIME_STEP_FACTOR, X_LUMINOSITY, X_RAY_SPEC_INDEX, M_TURN, Pop, HII_DIM, BOX_LEN);
    if (argc > 2) // restarting
      GLOBAL_EVOL = fopen(filename, "a");
    else
@@ -632,16 +607,16 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
 	/* initialise interpolation of the mean collapse fraction for global reionization.
 	   compute 'FgtrM_st_SFR' corresponding to an array of redshift. */
-    initialise_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
+    initialise_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10);
     printf("\n Completed initialise Fcoll_spline Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	/* initialise interpolation of the mean collapse fraction with respect to the X-ray heating.
 	   compute 'FgtrM_st_SFR' corresponding to an array of redshift, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
-    initialise_Xray_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
+    initialise_Xray_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, F_STAR10);
     printf("\n Completed initialise Fcoll_spline for X-ray Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	/* generate a table for interpolation of the collapse fraction with respect to the X-ray heating, as functions of 
 	filtering scale, redshift and overdensity, i.e. f_coll(R,z,delta).
 	   compute the conditional mass function, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
-	initialise_Xray_Fcollz_SFR_Conditional_table(NUM_FILTER_STEPS_FOR_Ts, zpp_interp_table, R_values, M_TURN, ALPHA_STAR, F_STAR10, Mlim_Fstar);
+	initialise_Xray_Fcollz_SFR_Conditional_table(NUM_FILTER_STEPS_FOR_Ts, zpp_interp_table, R_values, M_TURN, ALPHA_STAR, F_STAR10);
 	printf("\n Generated the table of conditional mass function = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
   }
 
@@ -859,21 +834,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     }    
     // Finally, convert to the correct units. NU_over_EV*hplank as only want to divide by eV -> erg (owing to the definition of Luminosity)
     Luminosity_conversion_factor *= (3.1556226e7)/(hplank);
-
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-	const_zp_prefactor = ( X_LUMINOSITY * Luminosity_conversion_factor ) / NU_X_THRESH * C 
-						 * F_STAR10 * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
-	//This line below is kept purely for reference w.r.t to the original 21cmFAST
-    //const_zp_prefactor = ZETA_X * X_RAY_SPEC_INDEX / NU_X_THRESH * C
-    //  * F_STAR10 * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
-	}
-	else {
-	const_zp_prefactor = ( X_LUMINOSITY * Luminosity_conversion_factor ) / NU_X_THRESH * C 
-						 * F_STAR * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
-	//This line below is kept purely for reference w.r.t to the original 21cmFAST
-    //const_zp_prefactor = ZETA_X * X_RAY_SPEC_INDEX / NU_X_THRESH * C
-    //  * F_STAR * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
-	}
+    const_zp_prefactor = ( X_LUMINOSITY * Luminosity_conversion_factor ) / NU_X_THRESH * C 
+			 * F_STAR10 * OMb * RHOcrit * pow(CMperMPC, -3) * pow(1+zp, X_RAY_SPEC_INDEX+3);
 
 
 
@@ -1058,7 +1020,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     sprintf(filename, "../Boxes/Ts_z%06.2f_L_X%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_f_esc%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
     }
 	else {
-    sprintf(filename, "../Boxes/Ts_z%06.2f_L_X%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, X_LUMINOSITY, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
+    sprintf(filename, "../Boxes/Ts_z%06.2f_L_X%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", zp, X_LUMINOSITY, X_RAY_SPEC_INDEX, M_TURN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
 	}
       if (!(F=fopen(filename, "wb"))){
 	fprintf(stderr, "Ts.c: WARNING: Unable to open output file %s\n", filename);

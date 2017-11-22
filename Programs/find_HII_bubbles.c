@@ -182,6 +182,8 @@ int main(int argc, char ** argv){
   float global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
   *error_message = '\0';
+  //TEST
+  double mhalo_i,dmhalo,mhalo_min,mhalo_max,Fesc,Fesc2,Fesc3;
 
   int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
   
@@ -245,8 +247,8 @@ int main(int argc, char ** argv){
   if (INHOMO_RECO) {  init_MHR();}
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
   	init_21cmMC_arrays();
-    Mlim_Fstar = Mass_limit_bisection(M_TURN, ALPHA_STAR, F_STAR10);
-    Mlim_Fesc = Mass_limit_bisection(M_TURN, ALPHA_ESC, F_ESC10);
+    Mlim_Fstar = Mass_limit_bisection(M_TURN/50., 1e16, ALPHA_STAR, F_STAR10);
+    Mlim_Fesc = Mass_limit_bisection(M_TURN/50., 1e16, ALPHA_ESC, F_ESC10);
     ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
   }
   else

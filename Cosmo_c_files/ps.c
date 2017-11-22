@@ -1237,8 +1237,8 @@ double dFdlnM_st_SFR(double lnM, void *params){
 		Fstar = 1./Fstar10;
 	else if (Alpha_star < 0. && M < Mlim_Fstar)
 		Fstar = 1/Fstar10;
-	else if (Mlim_Fstar == 0.)
-		Fstar = pow(M/1e10,Alpha_star);
+	else if (abs(Alpha_star) < 1e-8)
+		Fstar = Fstar10;
 	else
 		Fstar = pow(M/1e10,Alpha_star);
 
@@ -1246,8 +1246,8 @@ double dFdlnM_st_SFR(double lnM, void *params){
 		Fesc = 1./Fesc10;
 	else if (Alpha_esc < 0. && M < Mlim_Fesc)
 		Fesc = 1./Fesc10;
-	else if (Mlim_Fesc == 0.)
-		Fesc = pow(M/1e10,Alpha_esc);
+	else if (abs(Alpha_esc) < 1e-8)
+		Fesc = Fesc10;
 	else
 		Fesc = pow(M/1e10,Alpha_esc);
 
@@ -1316,17 +1316,17 @@ float FgtrConditionallnM_GL_SFR(float lnM, struct parameters_gsl_SFR_con_int_ pa
 		Fstar = 1./Fstar10;
 	else if (Alpha_star < 0. && M < Mlim_Fstar)
 		Fstar = 1./Fstar10;
-	else if (Mlim_Fstar == 0.)
-		Fstar = pow(M/1e10,Alpha_star);
+	else if (abs(Alpha_star) < 1e-8)
+		Fstar = Fstar10;
 	else
 		Fstar = pow(M/1e10,Alpha_star);
 
 	if (Alpha_esc > 0. && M > Mlim_Fesc)
 		Fesc = 1./Fesc10;
-	else if (Alpha_star < 0. && M < Mlim_Fesc)
+	else if (Alpha_esc < 0. && M < Mlim_Fesc)
 		Fesc = 1./Fesc10;
-	else if (Mlim_Fesc == 0.)
-		Fesc = pow(M/1e10,Alpha_esc);
+	else if (abs(Alpha_esc) < 1e-8)
+		Fesc = Fesc10;
 	else
 		Fesc = pow(M/1e10,Alpha_esc);
 
@@ -1390,17 +1390,17 @@ double dFgtrConditionallnM_SFR(double lnM, void *params) {
 		Fstar = 1./Fstar10;
 	else if (Alpha_star < 0. && M < Mlim_Fstar)
 		Fstar = 1./Fstar10;
-	else if (Mlim_Fstar == 0.)
-		Fstar = pow(M/1e10,Alpha_star);
+	else if (abs(Alpha_star) < 1e-8)
+		Fstar = Fstar10;
 	else
 		Fstar = pow(M/1e10,Alpha_star);
 
 	if (Alpha_esc > 0. && M > Mlim_Fesc)
 		Fesc = 1./Fesc10;
-	else if (Alpha_star < 0. && M < Mlim_Fesc)
+	else if (Alpha_esc < 0. && M < Mlim_Fesc)
 		Fesc = 1./Fesc10;
-	else if (Mlim_Fesc == 0.)
-		Fesc = pow(M/1e10,Alpha_esc);
+	else if (abs(Alpha_esc) < 1e-8)
+		Fesc = Fesc10;
 	else
 		Fesc = pow(M/1e10,Alpha_esc);
 

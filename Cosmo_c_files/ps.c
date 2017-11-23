@@ -1182,10 +1182,6 @@ float Mass_limit_bisection(float Mmin, float Mmax, float PL, float FRAC){
   logMlow = log10(Mmin);
   logMupper = log10(Mmax);
   
-  //printf("Mmin= %.4e, Mmax=%.4e, Pl=%.4f, Frac=%.4f,Mass_limit = %.4e\n",
-  // 			Mmin, Mmax, PL, FRAC, Mass_limit(logMupper,PL,FRAC));
-  printf("Mmin= %.4e, Mmax=%.4e, Pl=%.4f, Frac=%.4f,Mass_limit = %.4e\n",
-  			Mmin, Mmax, PL, FRAC, Mass_limit(logMlow,PL,FRAC));
   if (PL < 0.) {
     if (Mass_limit(logMlow,PL,FRAC) < 1.) {
       return Mmin;
@@ -1193,7 +1189,6 @@ float Mass_limit_bisection(float Mmin, float Mmax, float PL, float FRAC){
   }
   else if (PL > 0.) {
     if (Mass_limit(logMupper,PL,FRAC) < 1.) {
-	  printf("Mass_limit = %.4e\n",Mass_limit(logMupper,PL,FRAC));
       return Mmax;
     }
   }

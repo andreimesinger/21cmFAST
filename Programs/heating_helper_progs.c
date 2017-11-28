@@ -22,13 +22,13 @@ float F_STAR10,F_ESC10,ALPHA_STAR,ALPHA_ESC,M_TURN,T_AST,Mlim_Fstar,Mlim_Fesc,M_
 double X_LUMINOSITY;
 float growth_zpp; // New in v1.4
 static float determine_zpp_max, determine_zpp_min,zpp_bin_width; // new in v1.4
-float *second_derivs_Fcoll_zpp1[NUM_FILTER_STEPS_FOR_Ts],*second_derivs_Fcoll_zpp2[NUM_FILTER_STEPS_FOR_Ts];
-int *zpp1_interp_int, *zpp2_interp_int; //New in v1.4 
+float *second_derivs_Fcoll_zpp[NUM_FILTER_STEPS_FOR_Ts]; // New
+//float *redshift_interp_table[NUM_FILTER_STEPS_FOR_Ts];
+float *redshift_interp_table;
+int Nsteps_zp; //New in v1.4 
 float *grad_zpp1,*grad_zpp2,*zpp_interp_table, *zpp_table; //New in v1.4
-gsl_interp_accel *FcollLow_zpp1_spline_acc[NUM_FILTER_STEPS_FOR_Ts];
-gsl_spline *FcollLow_zpp1_spline[NUM_FILTER_STEPS_FOR_Ts];
-gsl_interp_accel *FcollLow_zpp2_spline_acc[NUM_FILTER_STEPS_FOR_Ts];
-gsl_spline *FcollLow_zpp2_spline[NUM_FILTER_STEPS_FOR_Ts];
+gsl_interp_accel *FcollLow_zpp_spline_acc[NUM_FILTER_STEPS_FOR_Ts];
+gsl_spline *FcollLow_zpp_spline[NUM_FILTER_STEPS_FOR_Ts];
 
 int i; //TEST
 FILE *LOG;
@@ -308,7 +308,6 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
   // New in v1.4
   float growth_zpp; 
   float fcoll1,fcoll2,fcoll,gradient1,gradient2,zpp1,zpp2;
-  int zpp1_int,zpp2_int,ii;
 
   x_e = y[0];
   T = y[1];
@@ -339,14 +338,11 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 	  // Interpolate Fcoll -------------------------------------------------------------------------------------
 	  if (curr_delNL0[zpp_ct]*growth_zpp < 1.5){
         if (curr_delNL0[zpp_ct]*growth_zpp < -1.) {
-          fcoll1 = 0;
-          fcoll2 = 0;
+		  fcoll = 0;
         }
         else {
-          fcoll1 = gsl_spline_eval(FcollLow_zpp1_spline[zpp_ct], log10(curr_delNL0[zpp_ct]*growth_zpp+1.), FcollLow_zpp1_spline_acc[zpp_ct]);
-          fcoll2 = gsl_spline_eval(FcollLow_zpp2_spline[zpp_ct], log10(curr_delNL0[zpp_ct]*growth_zpp+1.), FcollLow_zpp2_spline_acc[zpp_ct]);
-          fcoll1 = pow(10., fcoll1);
-          fcoll2 = pow(10., fcoll2);
+          fcoll = gsl_spline_eval(FcollLow_zpp_spline[zpp_ct], log10(curr_delNL0[zpp_ct]*growth_zpp+1.), FcollLow_zpp_spline_acc[zpp_ct]);
+          fcoll= pow(10., fcoll);
         }
       }
       else {
@@ -354,15 +350,12 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
           // Usage of 0.99*Deltac arises due to the fact that close to the critical density, the collapsed fraction becomes a little unstable
           // However, such densities should always be collapsed, so just set f_coll to unity. 
           // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
-          splint(Overdense_high_table-1,Fcollz_SFR_high_table[zpp_ct][zpp1_interp_int[zpp_ct]]-1,second_derivs_Fcoll_zpp1[zpp_ct]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll1));
-          splint(Overdense_high_table-1,Fcollz_SFR_high_table[zpp_ct][zpp2_interp_int[zpp_ct]]-1,second_derivs_Fcoll_zpp2[zpp_ct]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll2));
+          splint(Overdense_high_table-1,Fcollz_SFR_high_table[zpp_ct]-1,second_derivs_Fcoll_zpp[zpp_ct]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll));
         }
         else {
-          fcoll1 = 1.;
-          fcoll2 = 1.;
+          fcoll = 1.;
         }
       }
-      fcoll = fcoll1*grad_zpp1[zpp_ct] + fcoll2*grad_zpp2[zpp_ct];
       //printf("delta = %.4f, fcoll1 = %.4e, fcoll2 = %.4e\n",Overdensity,fcoll1,fcoll2);
       if (fcoll > 1.) fcoll = 1.;
 	  // Find Fcoll end ----------------------------------------------------------------------------------
@@ -395,10 +388,8 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
   dxion_source_dt *= const_zp_prefactor;
   if (COMPUTE_Ts){
     dxlya_dt *= const_zp_prefactor*n_b;
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY)
-    	dstarlya_dt *= F_STAR10 * C * N_b0 / FOURPI;
-    else
-		dstarlya_dt *= F_STAR * C * N_b0 / FOURPI;
+    dstarlya_dt *= F_STAR10 * C * N_b0 / FOURPI;
+
     /*
     if ((dxlya_dt < 0) || (dstarlya_dt<0)){
          printf("***Jalpha_x=%e, Jalpha_star=%e\n", dxlya_dt, dstarlya_dt);

@@ -80,9 +80,9 @@ void FgtrM_st_SFR_z(float z, float *splined_value);
 void initialise_Xray_FgtrM_st_SFR_spline(int Nbin, float zmin, float zmax, float MassTurn, float Alpha_star, float Fstar10);
 void FgtrM_st_SFR_X_z(float z, float *splined_value);
 float *zpp_table;
-double *log10_overdense_low_table, ***log10_Fcollz_SFR_low_table;
-float *Overdense_high_table, ***Fcollz_SFR_high_table;
-void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], float MassTurnover, float Alpha_star, float Fstar10);
+double *log10_overdense_low_table, **log10_Fcollz_SFR_low_table;
+float *Overdense_high_table, **Fcollz_SFR_high_table;
+void initialise_Xray_Fcollz_SFR_Conditional_table(int Nsteps_zp, int Nfilter, float z[], double R[], float MassTurnover, float Alpha_star, float Fstar10);
 void initialise_Xray_Fcollz_SFR_Conditional(int R_ct, int zp_int1, int zp_int2);
 void free_interpolation();
     /* For Ts.c: being under development above this line */
@@ -342,7 +342,7 @@ double dNdM_st(double z, double M){
   sigma = sigma_z0(M) * dicke_growth;
   dsigmadm = dsigmasqdm_z0(M) * dicke_growth*dicke_growth/(2.0*sigma);
   nuhat = sqrt(SHETH_a) * Deltac / sigma;
-
+  
   return (-OMm*RHOcrit/M) * (dsigmadm/sigma) * sqrt(2/PI)*SHETH_A * (1+ pow(nuhat, -2*SHETH_p)) * nuhat * pow(E, -nuhat*nuhat/2.0);
 }
 
@@ -1246,7 +1246,6 @@ double dFdlnM_st_SFR(double lnM, void *params){
 		Fesc = 1./Fesc10;
 	else
 		Fesc = pow(M/1e10,Alpha_esc);
-
     return dNdM_st(z,M) * M * M * exp(-MassTurnover/M) * Fstar * Fesc;
 }
 
@@ -1274,7 +1273,6 @@ double FgtrM_st_SFR(double z, double MassTurnover, double Alpha_star, double Alp
     F.params = &parameters_gsl_SFR;
     lower_limit = log(M_Min);
     upper_limit = log(FMAX(1e16, M_Min*100));
-	//printf(" IN FgtrM_st_SFR: z = %.4f Mmin = %.4e, Mmax = %.4e\n",z,lower_limit, upper_limit);
 
     gsl_integration_qag (&F, lower_limit, upper_limit, 0, rel_tol,
                         1000, GSL_INTEG_GAUSS61, w, &result, &error);
@@ -1549,14 +1547,15 @@ void FgtrM_st_SFR_X_z(float z, float *splined_value){
 	*splined_value = returned_value;
 }
 
-void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], float MassTurnover, float Alpha_star, float Fstar10){
+
+void initialise_Xray_Fcollz_SFR_Conditional_table(int Nsteps_zp, int Nfilter, float z[], double R[], float MassTurnover, float Alpha_star, float Fstar10){
     double overdense_val;
     double overdense_large_high = Deltac, overdense_large_low = 1.5;
     double overdense_small_high = 1.5, overdense_small_low = -1. + 9e-8;
 	double overdense_low_table[NSFR_low];
 	float Mmin,Mmax,Mlim_Fstar;
-    int i,j,k;
-    int Nfilter = n;
+    int i,j,k,i_tot;
+    //int Nfilter = n;
 
     Mmin = MassTurnover/50; 
 	Mmax = RtoM(R[Nfilter-1]);
@@ -1573,19 +1572,23 @@ void initialise_Xray_Fcollz_SFR_Conditional_table(int n, float z[], double R[], 
       Overdense_high_table[i] = overdense_large_low + (float)i/((float)NSFR_high-1.)*(overdense_large_high - overdense_large_low);
     }
     //    printf("Nfilter = %d\n",Nfilter);
-    for (k=0; k<Nfilter; k++) {
+    for (k=0; k < Nsteps_zp; k++) {
+	  i_tot = Nfilter*k;
+      printf("zp step = %d\n",k); //TEST
       //printf("R filter = %d\n",k);
-      Mmax = RtoM(R[k]);
-      for (j=0; j<zpp_interp_points; j++) {
+      //Mmax = RtoM(R[k]);
+      for (j=0; j < Nfilter; j++) {
+        Mmax = RtoM(R[j]);
         initialiseGL_FcollSFR(NGL_SFR, Mmin, Mmax);
         for (i=0; i<NSFR_low; i++){
-            log10_Fcollz_SFR_low_table[k][j][i] = log10(GaussLegendreQuad_FcollSFR(NGL_SFR,z[j],log(Mmax),Deltac,overdense_low_table[i]-1.,MassTurnover,Alpha_star,0.,Fstar10,1.,Mlim_Fstar,0.));
-            if(log10_Fcollz_SFR_low_table[k][j][i] < -40.) log10_Fcollz_SFR_low_table[k][j][i] = -40.;
+            log10_Fcollz_SFR_low_table[i_tot+j][i] = log10(GaussLegendreQuad_FcollSFR(NGL_SFR,z[i_tot+j],log(Mmax),Deltac,overdense_low_table[i]-1.,MassTurnover,Alpha_star,0.,Fstar10,1.,Mlim_Fstar,0.));
+            if(log10_Fcollz_SFR_low_table[i_tot+j][i] < -40.) log10_Fcollz_SFR_low_table[i_tot+j][i] = -40.;
+		    //if(i==0)printf("zp_step=%d, filter_step=%d, arr=%d\n",k, j,i_tot+j); //TEST
         }
 
         for(i=0;i<NSFR_high;i++) {
-            Fcollz_SFR_high_table[k][j][i] = FgtrConditionalM_SFR(z[j],log(Mmin),log(Mmax),Deltac,Overdense_high_table[i],MassTurnover,Alpha_star,0.,Fstar10,1.,Mlim_Fstar,0.);
-            if(Fcollz_SFR_high_table[k][j][i]<0.) Fcollz_SFR_high_table[k][j][i]=pow(10.,-40.0);
+            Fcollz_SFR_high_table[i_tot+j][i] = FgtrConditionalM_SFR(z[i_tot+j],log(Mmin),log(Mmax),Deltac,Overdense_high_table[i],MassTurnover,Alpha_star,0.,Fstar10,1.,Mlim_Fstar,0.);
+            if(Fcollz_SFR_high_table[i_tot+j][i]<0.) Fcollz_SFR_high_table[i_tot+j][i]=pow(10.,-40.0);
         }
       }
     }

@@ -135,6 +135,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    }
    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
    X_LUMINOSITY = pow(10.,L_X);
+   F_STAR10 = STELLAR_BARYON_FRAC;
  }
  else {
    if (argc  == 10) {
@@ -183,7 +184,6 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    }
    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
    ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
-   //init_21cmMC_arrays(); 
  }
  M_MIN = M_TURNOVER;
  REDSHIFT = atof(argv[1]);
@@ -565,11 +565,9 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   /* New in v1.4: set up interpolation table for computing f_coll(z,delta) */
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
     init_21cmMC_arrays();
-    determine_zpp_min = REDSHIFT*0.999;
-    zp_table = zp;
-	counter = 0;
 	
 	// Find the highest and lowest redshfit to initialise interpolation of the mean collapse fraction for the global reionization.
+    determine_zpp_min = REDSHIFT*0.999;
     for (R_ct=0; R_ct<NUM_FILTER_STEPS_FOR_Ts; R_ct++){
         if (R_ct==0){
             prev_zpp = zp;
@@ -583,31 +581,11 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
         zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
     }    
     determine_zpp_max = zpp*1.001;
-	printf("zmax = %.4f, zmin = %.4f\n",determine_zpp_max,determine_zpp_min);
+
 	zpp_bin_width = (determine_zpp_max - determine_zpp_min)/((float)zpp_interp_points-1.0);
 	for (i=0; i<zpp_interp_points;i++) {
 	    zpp_interp_table[i] = determine_zpp_min + (determine_zpp_max - determine_zpp_min)*(float)i/((float)zpp_interp_points-1.0);
 	}
-	
-	// initialise redshift table corresponding to all the redshift to initialise interpolation for the conditional mass function.
-    for (i=0; i<Nsteps_zp; i++) {
-      for (R_ct=0; R_ct<NUM_FILTER_STEPS_FOR_Ts; R_ct++){
-          if (R_ct==0){
-              prev_zpp = zp_table;
-              prev_R = 0; 
-          }    
-          else{
-              prev_zpp = zpp_edge[R_ct-1];
-              prev_R = R_values[R_ct-1];
-          }    
-          //zpp_edge[R_ct] = prev_zpp - (R_values[R_ct] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
-          zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
-		  redshift_interp_table[counter] = zpp;
-		  counter += 1;
-      }    
-      prev_zp = zp_table;
-	  zp_table = ((1+prev_zp) / ZPRIME_STEP_FACTOR - 1);
-    } 
 
 	/* initialise interpolation of the mean collapse fraction for global reionization.
 	   compute 'FgtrM_st_SFR' corresponding to an array of redshift. */
@@ -619,9 +597,32 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     initialise_Xray_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, F_STAR10);
     printf("\n Completed initialise Fcoll_spline for X-ray Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	
+	// initialise redshift table corresponding to all the redshifts to initialise interpolation for the conditional mass function.
+    zp_table = zp;
+	counter = 0;
+    for (i=0; i<Nsteps_zp; i++) {
+      for (R_ct=0; R_ct<NUM_FILTER_STEPS_FOR_Ts; R_ct++){
+          if (R_ct==0){
+              prev_zpp = zp_table;
+              prev_R = 0; 
+          }    
+          else{
+              prev_zpp = zpp_edge[R_ct-1];
+              prev_R = R_values[R_ct-1];
+          }    
+          zpp_edge[R_ct] = prev_zpp - (R_values[R_ct] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
+          zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
+		  redshift_interp_table[counter] = zpp;
+		  counter += 1;
+      }    
+      prev_zp = zp_table;
+	  zp_table = ((1+prev_zp) / ZPRIME_STEP_FACTOR - 1);
+    } 
+
 	/* generate a table for interpolation of the collapse fraction with respect to the X-ray heating, as functions of 
-	filtering scale, redshift and overdensity, i.e. f_coll(R,z,delta).
-	   compute the conditional mass function, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
+	filtering scale, redshift and overdensity.
+	   Note that at a given zp, zpp values depends on the filtering scale R, i.e. f_coll(z(R),delta).
+	   Compute the conditional mass function, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
 	initialise_Xray_Fcollz_SFR_Conditional_table(Nsteps_zp,NUM_FILTER_STEPS_FOR_Ts,redshift_interp_table,R_values, M_TURN, ALPHA_STAR, F_STAR10);
 	printf("\n Generated the table of conditional mass function = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	
@@ -653,12 +654,10 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
         NO_LIGHT = 0;
 	}
 	else {
-	  //printf("here\n");
       if (FgtrM(zp, M_MIN) < 1e-15 )
         NO_LIGHT = 1;
       else
         NO_LIGHT = 0;
-	  //printf("here\n");
 	}
 
 	//New in v1.4
@@ -697,6 +696,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	
       zpp_edge[R_ct] = prev_zpp - (R_values[R_ct] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
       zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
+	  if (zpp - redshift_interp_table[arr_num+R_ct] > 1e-3) printf("zpp = %.4f, zpp_array = %.4f\n", zpp, redshift_interp_table[arr_num+R_ct]);
       if(SHARP_CUTOFF) sigma_Tmin[R_ct] =  sigma_z0(M_MIN); // In v1.4 sigma_Tmin doesn't nedd to be an array, just a constant.
 
       // let's now normalize the total collapse fraction so that the mean is the
@@ -793,6 +793,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	sum_lyn[R_ct] += frecycle(n_ct) * spectral_emissivity(nuprime, 0);
       }
     } // end loop over R_ct filter steps
+
     time(&curr_time);
     fprintf(stderr, "Finishing initializing look-up tables.  It took %06.2f min on the main thread. Time elapsed (total for all threads)=%06.2f\n", difftime(curr_time, start_time)/60.0, (double)clock()/CLOCKS_PER_SEC/60.0);
     fprintf(LOG, "Finishing initializing look-up tables.  It took %06.2f min on the main thread. Total time elapsed (total for all threads)=%06.2f\n", difftime(curr_time, start_time)/60.0, (double)clock()/CLOCKS_PER_SEC/60.0);

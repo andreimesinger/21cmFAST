@@ -1,9 +1,10 @@
 #ifndef _ANAL_PARAM_H_
 #define _ANAL_PARAM_H_
 
+/**************************************************************************************************************/
+/**************** BEGIN USER CHANGABLE DEFINITIONS   **********************************************************/
 
-/******** BEGIN USER CHANGABLE DEFINITIONS   **********/
-/*
+/***********************************************
   GALAXY PARAMETERS
   NEW in v1.4:
 
@@ -22,20 +23,46 @@
   The fiducial 2 parameter galaxy model with a constant specific ionizing luminosity down
   to a threshold halo mass, M_TURNOVER, is recovered by setting *_PL parameters to zero.
   This results in the fastest runs.
-*/
+***********************************************/
 #define N_GAMMA_UV (float) (5000) // number of ionizing photons per stellar baryon
 #define STELLAR_BARYON_FRAC (double) (0.05) // defined for 10^10 Msun halos
-#define STELLAR_BARYON_PL (double) (0.4) //power law index w/ halo mass
-//#define STELLAR_BARYON_PL (double) (0.) //TEST
-#define ESC_FRAC (double) (0.1) // defined for 10^10 Msun halos
-#define ESC_PL (double) (-0.4) //power law index w/ halo mass
-//#define ESC_PL (double) (0.) //TEST
+#define STELLAR_BARYON_PL (double) (0.5) //power law index w/ halo mass
+#define ESC_FRAC (double) (0.1) // ionizing escape fraction, defined for 10^10 Msun halos
+#define ESC_PL (double) (-0.5) //power law index w/ halo mass
 #define M_TURNOVER (double) (5e8) // Halo mass threshold for efficient star formation (in Msun). 
-//#define M_TURNOVER (double) (0.) // TEST
+
+
+/**********************************************
+  RECOMBINATION PARAMETERS
+***********************************************/
+/*
+  INHOMO_RECO = 1 compute inhomogeneous recombinations, ala Sobacchi & Mesinger (2014).
+  This *requires* stepping down in redshift, e.g. using drive_logZscroll_Ts.c or  drive_zscroll_noTs.c
+*/
+#define INHOMO_RECO (int) (1)
+
+/*
+  Typical star-formation timescale, in units of the Hubble time.  This is used to compute the UVB if inhomo_reco is on.
+  This is also used when comparing againts observed UV LF w. 21CMMC, 
+  as the UV luminosity is proportional to the stellar mass / (t*H^-1)
+ */
+#define t_STAR (float) (0.5)
+
+/*
+  Power law index of the UVB during the EoR.  This is only used if INHOMO_RECO is on, in order to compute the
+  local mean free path inside the cosmic HII regions
+ */
+#define ALPHA_UVB (float) (5)
+
+
+/*****************   END OF MAIN PHYSICAL PARAMETERS.  ADDITIONAL OPTIONS ARE PRESENT BELOW THIS LINE *********/
+/**************************************************************************************************************/
+
 
 /*
   This version still keeps support for the constant ionizing efficiency with sharp cut-off for minimum halo mass.
-  If SHARP_CUTOFF = 1, use the constant ionizing efficency parameter with sharp cut-off.
+  If SHARP_CUTOFF = 1, use the constant ionizing efficency parameter \zeta = N_{\gammaUV} x f_{esc} x f_{\ast}
+  with sharp cut-off at M_TURNOVER.
 */
 #define SHARP_CUTOFF (int) (0)
 
@@ -46,30 +73,11 @@
   radius of a single, cohesive ionized region. (in practice, the ionization
   field is extreemly insensitive to this choice).
 
-  If setting IHOMO_RECO below to 1, R_BUBBLE_MAX should be at least ~20Mpc,
-  physically corresponding to the mfp at the end of the EoR.
-  Results during the EoR are insensitive to this choice.
+  If setting IHOMO_RECO below to 1, R_BUBBLE_MAX 
+  physically corresponds to the mfp at the end of the EoR.
+  In this case, it should be at least ~20Mpc, with results being extremely insensitive.
 */
 #define R_BUBBLE_MAX (float) (50)
-
-/*
-  INHOMO_RECO = 1 compute inhomogeneous recombinations, ala Sobacchi & Mesinger (2014).
-  This *requires* stepping down in redshift, e.g. using drive_logZscroll_Ts.c or  drive_zscroll_noTs.c
-*/
-#define INHOMO_RECO (int) (0)
-
-
-/*
-  Power law index of the UVB during the EoR.  This is only used if INHOMO_RECO is on, in order to compute the
-  local mean free path inside the cosmic HII regions
- */
-#define ALPHA_UVB (float) (5)
-
-
-/*
-  Typical star-formation timescale, in units of the Hubble time.  This is used to compute the UVB if inhomo_reco is on.
- */
-#define t_STAR (float) (0.5)
 
 
 /*
@@ -189,6 +197,24 @@
   3 = z
 */
 #define VELOCITY_COMPONENT (int) (3)
+
+/*
+ Whether to include line-of-sight redshift space distortions. 
+ 
+ This perturbs the 21cm brightness temperature into subcells (number set by N_RSD_STEPS), perturbs the 
+ cell boundaries according to the peculiar velocity and re-grids the perturbed cells back to the
+ original resolution.
+ 
+ Uses the approach outlined in Jensen et al. (2013).
+*/
+#define SUBCELL_RSD (int) (1)
+
+/*
+ Defines the number of subcells to be used for calculating the redshift space distortions.
+ 
+ Found 20 to be able to provide sufficient accuracy, Greig & Mesinger, 2018
+*/
+#define N_RSD_STEPS (int) (20)
 
 
 /*

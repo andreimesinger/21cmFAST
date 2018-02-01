@@ -23,10 +23,9 @@ double X_LUMINOSITY;
 float growth_zpp; // New in v1.4
 static float determine_zpp_max, determine_zpp_min,zpp_bin_width; // new in v1.4
 float *second_derivs_Fcoll_zpp[NUM_FILTER_STEPS_FOR_Ts]; // New
-//float *redshift_interp_table[NUM_FILTER_STEPS_FOR_Ts];
 float *redshift_interp_table;
 int Nsteps_zp; //New in v1.4 
-float *grad_zpp1,*grad_zpp2,*zpp_interp_table, *zpp_table; //New in v1.4
+float *zpp_interp_table; //New in v1.4
 gsl_interp_accel *FcollLow_zpp_spline_acc[NUM_FILTER_STEPS_FOR_Ts];
 gsl_spline *FcollLow_zpp_spline[NUM_FILTER_STEPS_FOR_Ts];
 
@@ -306,8 +305,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
   double T, x_e, dTdzp, dx_edzp, dfcoll, zpp_integrand;
   double dxe_dzp, n_b, dspec_dzp, dxheat_dzp, dxlya_dt, dstarlya_dt;
   // New in v1.4
-  float growth_zpp; 
-  float fcoll1,fcoll2,fcoll,gradient1,gradient2,zpp1,zpp2;
+  float growth_zpp,fcoll;
 
   x_e = y[0];
   T = y[1];
@@ -365,8 +363,8 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 		This is the same parameter with 't_STAR' (defined in ANAL_PARAMS.H).
 		If turn the new parametrization on, this is a free parameter.
 		*/
-	  dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp));
-	  if(isnan(dfcoll)||isinf(dfcoll)) { printf("dfcoll = %.5e\n",dfcoll); exit(0);}
+	  //dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*dtdz(zpp)*dzpp;
+	  dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp))*fabs(dzpp);
 	}
 	else {
       dfcoll = dfcoll_dz(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct]);
@@ -374,6 +372,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 	  //dfcoll = ST_over_PS[zpp_ct]*sigmaparam_FgtrM_bias(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct])*hubble(zpp)/0.7*fabs(dtdz(zpp));//TEST
 	}
     zpp_integrand = dfcoll * (1+curr_delNL0[zpp_ct]*dicke(zpp)) * pow(1+zpp, -X_RAY_SPEC_INDEX);
+
     dxheat_dt += zpp_integrand * freq_int_heat[zpp_ct];
     dxion_source_dt += zpp_integrand * freq_int_ion[zpp_ct];
     if (COMPUTE_Ts){
@@ -920,6 +919,13 @@ float get_Ts(float z, float delta, float TK, float xe, float Jalpha, float * cur
     TS = 1.0/TSinv;
     *curr_xalpha = 0;
   }
+
+  if((TS < 0.)&&(SUBCELL_RSD==1)) {
+        // Found that in extreme cases it could produce a negative spin temperature
+        // If negative, it is a very small number. Take the absolute value, the optical depth can deal with very large numbers, so ok to be small
+        TS = fabs(TS);
+    }
+    
 
   return TS;
 }

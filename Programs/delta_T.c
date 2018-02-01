@@ -27,6 +27,17 @@ int main(int argc, char ** argv){
   float k_x, k_y, k_z, k_mag, k_sq, k_floor, k_ceil, k_max, k_first_bin_ceil, k_factor;
   float *xH, const_factor, *Ts, T_rad, pixel_Ts_factor, curr_alphaX, curr_MminX;
   double ave_Ts, min_Ts, max_Ts, temp, curr_zetaX;
+  int ii;
+  
+  float d1_low, d1_high, d2_low, d2_high, gradient_component, min_gradient_component, subcell_width, x_val1, x_val2, subcell_displacement;
+  float RSD_pos_new, RSD_pos_new_boundary_low,RSD_pos_new_boundary_high, fraction_within, fraction_outside, cell_distance;
+
+  float *x_pos_offset, *x_pos, *delta_T_RSD_LOS;
+  
+  x_pos = calloc(N_RSD_STEPS,sizeof(float));
+  x_pos_offset = calloc(N_RSD_STEPS,sizeof(float));
+  delta_T_RSD_LOS = calloc(HII_DIM,sizeof(float));
+  
   int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
 
 
@@ -231,9 +242,17 @@ int main(int argc, char ** argv){
 	delta_T[HII_R_INDEX(i,j,k)] = const_factor*pixel_x_HI*(1+pixel_deltax);
 
 	if (USE_TS_IN_21CM){
-	  pixel_Ts_factor = (1 - T_rad / Ts[HII_R_INDEX(i,j,k)]);
-	  delta_T[HII_R_INDEX(i,j,k)] *= pixel_Ts_factor;
-	  ave_Ts += Ts[HII_R_INDEX(i,j,k)];
+      if(SUBCELL_RSD) {
+          // Converting the prefactors into the optical depth, tau. Factor of 1000 is the conversion of spin temperature from K to mK
+          delta_T[HII_R_INDEX(i,j,k)] *= (1. + REDSHIFT)/(1000.*Ts[HII_R_INDEX(i,j,k)]);
+      }
+      else {
+      
+          pixel_Ts_factor = (1 - T_rad / Ts[HII_R_INDEX(i,j,k)]);
+          delta_T[HII_R_INDEX(i,j,k)] *= pixel_Ts_factor;
+      }
+      
+      ave_Ts += Ts[HII_R_INDEX(i,j,k)];
 	  if (min_Ts > Ts[HII_R_INDEX(i,j,k)]) { min_Ts = Ts[HII_R_INDEX(i,j,k)];}
 	  if (max_Ts < Ts[HII_R_INDEX(i,j,k)]) { max_Ts = Ts[HII_R_INDEX(i,j,k)];}
 	}
@@ -253,6 +272,16 @@ int main(int argc, char ** argv){
     fprintf(stderr, "Ts, min = %e, max = %e, ave = %e\n", min_Ts, max_Ts, ave_Ts);
     fprintf(stderr, "corresponding to (1-trad/Ts of), min = %e, max = %e, ave = %e\n", 1-T_rad/min_Ts, 1-T_rad/max_Ts, 1-T_rad/ave_Ts);
   }
+
+  x_val1 = 0.;
+  x_val2 = 1.;
+   
+  subcell_width = (BOX_LEN/(float)HII_DIM)/(float)N_RSD_STEPS;
+   
+  float max_cell_distance;
+   
+  max_cell_distance = 0.;
+  
 
 
     // check if we need to correct for velocities
@@ -311,6 +340,7 @@ int main(int argc, char ** argv){
   fftwf_cleanup();
 
 
+/*
   // now add the velocity correction to the delta_T maps
   max_v_deriv = fabs(MAX_DVDR*H);
   for (i=0; i<HII_DIM; i++){
@@ -344,7 +374,225 @@ int main(int argc, char ** argv){
 	}
 
 	ave += delta_T[HII_R_INDEX(i,j,k)];
+*/
+     if(SUBCELL_RSD) {
+          
+          // now add the velocity correction to the delta_T maps
+          min_gradient_component = 1.0;
+          
+          for (i=0; i<HII_DIM; i++){
+              for (j=0; j<HII_DIM; j++){
+                  for (k=0; k<HII_DIM; k++){
+                      
+                      gradient_component = fabs(v[HII_R_FFT_INDEX(i,j,k)]/H + 1.0);
+                      
+                      // Calculate the brightness temperature, using the optical depth
+                      if(gradient_component < FRACT_FLOAT_ERR) {
+                          // Gradient component goes to zero, optical depth diverges. But, since we take exp(-tau), this goes to zero and (1 - exp(-tau)) goes to unity.
+                          // Again, factors of 1000. are conversions from K to mK
+                          delta_T[HII_R_INDEX(i,j,k)] = 1000.*(Ts[HII_R_INDEX(i,j,k)] - T_rad)/(1. + REDSHIFT);
+                      }
+                      else {
+                          delta_T[HII_R_INDEX(i,j,k)] = (1. - exp(- delta_T[HII_R_INDEX(i,j,k)]/gradient_component ))*1000.*(Ts[HII_R_INDEX(i,j,k)] - T_rad)/(1. + REDSHIFT);
+                      }
+                  }
+              }
+          }
+         
+          // normalised units of cell length. 0 equals beginning of cell, 1 equals end of cell
+          // These are the sub-cell central positions (x_pos_offset), and the corresponding normalised value (x_pos) between 0 and 1
+          for(ii=0;ii<N_RSD_STEPS;ii++) {
+              x_pos_offset[ii] = subcell_width*(float)ii + subcell_width/2.;
+              x_pos[ii] = x_pos_offset[ii]/( BOX_LEN/(float)HII_DIM );
+          }
+         // Note to convert the velocity v, to a displacement in redshift space, convert from s -> r + (1+z)*v/H(z)
+          // To convert the velocity within the array v to km/s, it is a*dD/dt*delta. Where the scale factor a comes from the continuity equation
+          // The array v as defined in 21cmFAST is (ik/k^2)*dD/dt*delta, as it is defined as a comoving quantity (scale factor is implicit).
+          // However, the conversion between real and redshift space also picks up a scale factor, therefore the scale factors drop out and therefore
+          // the displacement of the sub-cells is purely determined from the array, v and the Hubble factor: v/H.
+          
+          for (i=0; i<HII_DIM; i++){
+              for (j=0; j<HII_DIM; j++){
+                  
+                  // Generate the optical-depth for the specific line-of-sight with R.S.D
+                  for(k=0;k<HII_DIM;k++) {
+                      delta_T_RSD_LOS[k] = 0.0;
+                  }
+                  
+                  for (k=0; k<HII_DIM; k++){
+                      
+                      if((fabs(delta_T[HII_R_INDEX(i,j,k)]) >= FRACT_FLOAT_ERR) && (xH[HII_R_INDEX(i,j,k)] >= FRACT_FLOAT_ERR)) {
+
+                          if(k==0) {
+                              d1_low = v[HII_R_FFT_INDEX(i,j,HII_DIM-1)]/H;
+                              d2_low = v[HII_R_FFT_INDEX(i,j,k)]/H;
+                          }
+                          else {
+                              d1_low = v[HII_R_FFT_INDEX(i,j,k-1)]/H;
+                              d2_low = v[HII_R_FFT_INDEX(i,j,k)]/H;
+                          }
+                          // Displacements (converted from velocity) for the original cell centres straddling half of the sub-cells (cell after)
+                          if(k==(HII_DIM-1)) {
+                              d1_high = v[HII_R_FFT_INDEX(i,j,k)]/H;
+                              d2_high = v[HII_R_FFT_INDEX(i,j,0)]/H;
+                          }
+                          else {
+                              d1_high = v[HII_R_FFT_INDEX(i,j,k)]/H;
+                              d2_high = v[HII_R_FFT_INDEX(i,j,k+1)]/H;
+                          }
+                         
+                          for(ii=0;ii<N_RSD_STEPS;ii++) {
+                              
+                              // linearly interpolate the displacements to determine the corresponding displacements of the sub-cells
+                              // Checking of 0.5 is for determining if we are left or right of the mid-point of the original cell (for the linear interpolation of the displacement)
+                              // to use the appropriate cell
+                              
+                              if(x_pos[ii] <= 0.5) {
+                                  subcell_displacement = d1_low + ( (x_pos[ii] + 0.5 ) - x_val1)*( d2_low - d1_low )/( x_val2 - x_val1 );
+                              }
+                              else {
+                                  subcell_displacement = d1_high + ( (x_pos[ii] - 0.5 ) - x_val1)*( d2_high - d1_high )/( x_val2 - x_val1 );
+                              }
+                              
+                              // The new centre of the sub-cell post R.S.D displacement. Normalised to units of cell width for determining it's displacement
+                              RSD_pos_new = (x_pos_offset[ii] + subcell_displacement)/( BOX_LEN/(float)HII_DIM );
+                              // The sub-cell boundaries of the sub-cell, for determining the fractional contribution of the sub-cell to neighbouring cells when
+                              // the sub-cell straddles two cell positions
+                              RSD_pos_new_boundary_low = RSD_pos_new - (subcell_width/2.)/( BOX_LEN/(float)HII_DIM );
+                              RSD_pos_new_boundary_high = RSD_pos_new + (subcell_width/2.)/( BOX_LEN/(float)HII_DIM );
+                              
+                              if(RSD_pos_new_boundary_low >= 0.0 && RSD_pos_new_boundary_high < 1.0) {
+                                  // sub-cell has remained in the original cell (just add it back to the original cell)
+                                  
+                                  delta_T_RSD_LOS[k] += delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                              }
+                              else if(RSD_pos_new_boundary_low < 0.0 && RSD_pos_new_boundary_high < 0.0) {
+                                  // sub-cell has moved completely into a new cell (toward the observer)
+                                  
+                                  // determine how far the sub-cell has moved in units of original cell boundary
+                                  cell_distance = ceil(fabs(RSD_pos_new_boundary_low))-1.;
+                                  
+                                  // Determine the location of the sub-cell relative to the original cell binning
+                                  if(fabs(RSD_pos_new_boundary_high) > cell_distance) {
+                                      // sub-cell is entirely contained within the new cell (just add it to the new cell)
+                                     // check if the new cell position is at the edge of the box. If so, periodic boundary conditions
+                                      if(k<((int)cell_distance+1)) {
+                                          delta_T_RSD_LOS[k-((int)cell_distance+1) + HII_DIM] += delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                      else {
+                                          delta_T_RSD_LOS[k-((int)cell_distance+1)] += delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                  }
+                                  else {
+                                      // sub-cell is partially contained within the cell
+                                      
+                                      // Determine the fraction of the sub-cell which is in either of the two original cells
+                                      fraction_outside = (fabs(RSD_pos_new_boundary_low) - cell_distance)/(subcell_width/( BOX_LEN/(float)HII_DIM ));
+                                      fraction_within = 1. - fraction_outside;
+                                      
+                                      // Check if the first part of the sub-cell is at the box edge
+                                      if(k<(((int)cell_distance))) {
+                                          delta_T_RSD_LOS[k-((int)cell_distance) + HII_DIM] += fraction_within*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                      else {
+                                          delta_T_RSD_LOS[k-((int)cell_distance)] += fraction_within*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                      // Check if the second part of the sub-cell is at the box edge
+                                      if(k<(((int)cell_distance + 1))) {
+                                          delta_T_RSD_LOS[k-((int)cell_distance+1) + HII_DIM] += fraction_outside*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                      else {
+                                          delta_T_RSD_LOS[k-((int)cell_distance+1)] += fraction_outside*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                  }
+                              }
+                             else if(RSD_pos_new_boundary_low < 0.0 && (RSD_pos_new_boundary_high > 0.0 && RSD_pos_new_boundary_high < 1.0)) {
+                                  // sub-cell has moved partially into a new cell (toward the observer)
+                                  
+                                  // Determine the fraction of the sub-cell which is in either of the two original cells
+                                  fraction_within = RSD_pos_new_boundary_high/(subcell_width/( BOX_LEN/(float)HII_DIM ));
+                                  fraction_outside = 1. - fraction_within;
+                                  
+                                  // Check the periodic boundaries conditions and move the fraction of each sub-cell to the appropriate new cell
+                                  if(k==0) {
+                                      delta_T_RSD_LOS[HII_DIM-1] += fraction_outside*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      delta_T_RSD_LOS[k] += fraction_within*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                  }
+                                  else {
+                                      delta_T_RSD_LOS[k-1] += fraction_outside*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      delta_T_RSD_LOS[k] += fraction_within*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                  }
+                              }
+                              else if((RSD_pos_new_boundary_low >= 0.0 && RSD_pos_new_boundary_low < 1.0) && (RSD_pos_new_boundary_high >= 1.0)) {
+                                  // sub-cell has moved partially into a new cell (away from the observer)
+                                  
+                                  // Determine the fraction of the sub-cell which is in either of the two original cells
+                                  fraction_outside = (RSD_pos_new_boundary_high - 1.)/(subcell_width/( BOX_LEN/(float)HII_DIM ));
+                                  fraction_within = 1. - fraction_outside;
+                                  
+                                  // Check the periodic boundaries conditions and move the fraction of each sub-cell to the appropriate new cell
+                                  if(k==(HII_DIM-1)) {
+                                      delta_T_RSD_LOS[k] += fraction_within*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      delta_T_RSD_LOS[0] += fraction_outside*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                  }
+                                  else {
+                                      delta_T_RSD_LOS[k] += fraction_within*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      delta_T_RSD_LOS[k+1] += fraction_outside*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                  }
+                              }
+                             else {
+                                  // sub-cell has moved completely into a new cell (away from the observer)
+                                  
+                                  // determine how far the sub-cell has moved in units of original cell boundary
+                                  cell_distance = floor(fabs(RSD_pos_new_boundary_high));
+                                  
+                                  if(RSD_pos_new_boundary_low >= cell_distance) {
+                                      // sub-cell is entirely contained within the new cell (just add it to the new cell)
+                                      
+                                      // check if the new cell position is at the edge of the box. If so, periodic boundary conditions
+                                      if(k>(HII_DIM - 1 - (int)cell_distance)) {
+                                          delta_T_RSD_LOS[k+(int)cell_distance - HII_DIM] += delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                      else {
+                                          delta_T_RSD_LOS[k+(int)cell_distance] += delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                  }
+                                  else {
+                                      // sub-cell is partially contained within the cell
+                                      
+                                      // Determine the fraction of the sub-cell which is in either of the two original cells
+                                      fraction_outside = (RSD_pos_new_boundary_high - cell_distance)/(subcell_width/( BOX_LEN/(float)HII_DIM ));
+                                      fraction_within = 1. - fraction_outside;
+                                      
+                                      // Check if the first part of the sub-cell is at the box edge
+                                      if(k>(HII_DIM - 1 - ((int)cell_distance-1))) {
+                                          delta_T_RSD_LOS[k+(int)cell_distance-1 - HII_DIM] += fraction_within*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                      else {
+                                          delta_T_RSD_LOS[k+(int)cell_distance-1] += fraction_within*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                      // Check if the second part of the sub-cell is at the box edge
+                                      if(k>(HII_DIM - 1 - ((int)cell_distance))) {
+                                          delta_T_RSD_LOS[k+(int)cell_distance - HII_DIM] += fraction_outside*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                      else {
+                                          delta_T_RSD_LOS[k+(int)cell_distance] += fraction_outside*delta_T[HII_R_INDEX(i,j,k)]/(float)N_RSD_STEPS;
+                                      }
+                                 }
+                              }
+                          }
+                      }
+                  }
+                  
+                  for(k=0;k<HII_DIM;k++) {
+                      delta_T[HII_R_INDEX(i,j,k)] = delta_T_RSD_LOS[k];
+                      
+                      ave += delta_T_RSD_LOS[k];
+                  }
+              }
+          }
       }
+/*
     }
   }
   ave /= (HII_TOT_NUM_PIXELS+0.0);
@@ -352,6 +600,56 @@ int main(int argc, char ** argv){
   fprintf(stderr, "With velocities:\nMax is %e\t dvdx is %e, ave is %e\n", max, maxdvdx, ave);
   fprintf(LOG, "%llu out of %llu voxels (fraction=%e) exceeded max allowed velocity gradient\n", nonlin_ct, HII_TOT_NUM_PIXELS, nonlin_ct/(double)HII_TOT_NUM_PIXELS);
   fprintf(stderr, "%llu out of %llu voxels (fraction=%e) exceeded max allowed velocity gradient\n", nonlin_ct, HII_TOT_NUM_PIXELS, nonlin_ct/(double)HII_TOT_NUM_PIXELS);
+*/
+     else {
+          
+          // now add the velocity correction to the delta_T maps
+          max_v_deriv = fabs(MAX_DVDR*H);
+          for (i=0; i<HII_DIM; i++){
+              for (j=0; j<HII_DIM; j++){
+                  for (k=0; k<HII_DIM; k++){
+
+                      dvdx = v[HII_R_FFT_INDEX(i,j,k)];
+
+                      // set maximum allowed gradient for this linear approximation
+                      if (fabs(dvdx) > max_v_deriv){
+                          if (dvdx < 0) dvdx = -max_v_deriv;
+                          else dvdx = max_v_deriv;
+                          nonlin_ct++;
+                      }
+
+                      delta_T[HII_R_INDEX(i,j,k)] /= (dvdx/H + 1.0);
+
+                      if (max < delta_T[HII_R_INDEX(i,j,k)]){
+                          maxi = i;
+                          maxj = j;
+                          maxk = k;
+                          maxdvdx = dvdx;
+                          max = delta_T[HII_R_INDEX(i,j,k)];
+                      }
+                      if (min > delta_T[HII_R_INDEX(i,j,k)]){
+                          mini = i;
+                          minj = j;
+                          mink = k;
+                          mindvdx = dvdx;
+                          min = delta_T[HII_R_INDEX(i,j,k)];
+                      }
+
+                      ave += delta_T[HII_R_INDEX(i,j,k)];
+                  }
+              }
+          }
+      }
+      
+      ave /= (HII_TOT_NUM_PIXELS+0.0);
+      
+      if(!SUBCELL_RSD) {
+          fprintf(LOG, "With velocities:\nMax is %e\t dvdx is %e, ave is %e\n", max, maxdvdx, ave);
+          fprintf(stderr, "With velocities:\nMax is %e\t dvdx is %e, ave is %e\n", max, maxdvdx, ave);
+          fprintf(LOG, "%llu out of %llu voxels (fraction=%e) exceeded max allowed velocity gradient\n", nonlin_ct, HII_TOT_NUM_PIXELS, nonlin_ct/(double)HII_TOT_NUM_PIXELS);
+          fprintf(stderr, "%llu out of %llu voxels (fraction=%e) exceeded max allowed velocity gradient\n", nonlin_ct, HII_TOT_NUM_PIXELS, nonlin_ct/(double)HII_TOT_NUM_PIXELS);
+      }
+      
 
   
   // now write out the delta_T box with velocity correction

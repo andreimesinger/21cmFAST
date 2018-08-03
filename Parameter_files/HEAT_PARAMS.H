@@ -24,7 +24,7 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
  and is available as a free parameter. This is defined as the 2keV luminosity, hence NU_X_BAND_MAX = 2000.00.
   Defined as log10(L_X). E.g. 40 = log10(10^40)
 */
-#define L_X (double) (40)
+#define L_X (double) (40.5)
 #define NU_X_BAND_MAX (double) (2000*NU_over_EV)
 
 
@@ -45,7 +45,7 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
 /*
   X-Ray spectral index at frequencies higher than NU_X_THRESH
  */
-#define X_RAY_SPEC_INDEX (double) (1.2)
+#define X_RAY_SPEC_INDEX (double) (1.0)
 
 
 /*

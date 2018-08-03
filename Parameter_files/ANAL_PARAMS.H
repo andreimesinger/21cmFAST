@@ -112,7 +112,7 @@
   The current implementation is very naive and add a factor ~6 to the memory requirements.
   Reference: Scoccimarro R., 1998, MNRAS, 299, 1097-1118 Appendix D  
 */
-#define SECOND_ORDER_LPT_CORRECTIONS (int) (0)
+#define SECOND_ORDER_LPT_CORRECTIONS (int) (1)
 
 /*
   Allows one to set a flag allowing find_HII_bubbles to skip constructing the 

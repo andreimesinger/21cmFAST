@@ -22,16 +22,16 @@
 */
 
 
-// New in v1.4: To calculate follapse fraction for new parametrization
+// New in v1.4
 void init_21cmMC_arrays() { 
 
 	int i,j;
 
     for (i=0; i < NUM_FILTER_STEPS_FOR_Ts; i++){
-      FcollLow_zpp_spline_acc[i] = gsl_interp_accel_alloc ();
-      FcollLow_zpp_spline[i] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
+      SFRDLow_zpp_spline_acc[i] = gsl_interp_accel_alloc ();
+      SFRDLow_zpp_spline[i] = gsl_spline_alloc (gsl_interp_cspline, NSFR_low);
 
-      second_derivs_Fcoll_zpp[i] = calloc(NSFR_high,sizeof(float));
+      second_derivs_Nion_zpp[i] = calloc(NSFR_high,sizeof(float));
     }
 
     xi_SFR = calloc((NGL_SFR+1),sizeof(float));
@@ -42,15 +42,15 @@ void init_21cmMC_arrays() {
 	redshift_interp_table = calloc(NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp, sizeof(float)); // New
 
 	log10_overdense_low_table = calloc(NSFR_low,sizeof(double));
-	log10_Fcollz_SFR_low_table = (double **)calloc(NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp,sizeof(double *)); //New
+	log10_SFRD_z_low_table = (double **)calloc(NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp,sizeof(double *)); //New
 	for(i=0;i<NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp;i++){  // New
-			log10_Fcollz_SFR_low_table[i] = (double *)calloc(NSFR_low,sizeof(double));
+			log10_SFRD_z_low_table[i] = (double *)calloc(NSFR_low,sizeof(double));
 	}
 
 	Overdense_high_table = calloc(NSFR_high,sizeof(float));
-	Fcollz_SFR_high_table = (float **)calloc(NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp,sizeof(float *)); //New
+	SFRD_z_high_table = (float **)calloc(NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp,sizeof(float *)); //New
 	for(i=0;i<NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp;i++){  // New
-			Fcollz_SFR_high_table[i] = (float *)calloc(NSFR_high,sizeof(float));
+			SFRD_z_high_table[i] = (float *)calloc(NSFR_high,sizeof(float));
 	}
 }
 
@@ -65,23 +65,23 @@ void destroy_21cmMC_arrays() {
 	free(redshift_interp_table);
 
 	for(i=0;i<NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp;i++) {
-		free(log10_Fcollz_SFR_low_table[i]);
+		free(log10_SFRD_z_low_table[i]);
 	}
-	free(log10_Fcollz_SFR_low_table);
+	free(log10_SFRD_z_low_table);
 
 	free(log10_overdense_low_table);
 
 	for(i=0;i<NUM_FILTER_STEPS_FOR_Ts*Nsteps_zp;i++) {
-		free(Fcollz_SFR_high_table[i]);
+		free(SFRD_z_high_table[i]);
 	}
-	free(Fcollz_SFR_high_table);
+	free(SFRD_z_high_table);
 
 	free(Overdense_high_table);
 	
     for (i=0; i < NUM_FILTER_STEPS_FOR_Ts; i++){
-      gsl_spline_free (FcollLow_zpp_spline[i]);
-      gsl_interp_accel_free (FcollLow_zpp_spline_acc[i]);
-      free(second_derivs_Fcoll_zpp[i]);
+      gsl_spline_free (SFRDLow_zpp_spline[i]);
+      gsl_interp_accel_free (SFRDLow_zpp_spline_acc[i]);
+      free(second_derivs_Nion_zpp[i]);
     }
 }
 
@@ -115,7 +115,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  time_t start_time, curr_time;
  double J_alpha_threads[NUMCORES], xalpha_threads[NUMCORES], Xheat_threads[NUMCORES],
    Xion_threads[NUMCORES], lower_int_limit;
- float Splined_Fcollzp_mean, Splined_Fcollzpp_X_mean,ION_EFF_FACTOR,fcoll; // New in v1.4
+ float Splined_Nion_ST_zp, Splined_SFRD_ST_zpp,ION_EFF_FACTOR,fcoll; // New in v1.4
  float zp_table; //New in v1.4
  int counter,arr_num; // New in v1.4
  double Luminosity_conversion_factor;
@@ -556,7 +556,6 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     prev_zp = Z_HEAT_MAX;
   }
   else{
-    //prev_zp = zp;
 	prev_zp_temp = zp;
 	zp_temp = zp;
 	Nsteps_zp = 0;
@@ -576,11 +575,11 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   }
   zp_ct=0;
   COMPUTE_Ts = 0;
-  /* New in v1.4: set up interpolation table for computing f_coll(z,delta) */
+  // New in v1.4
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
     init_21cmMC_arrays();
 	
-	// Find the highest and lowest redshfit to initialise interpolation of the mean collapse fraction for the global reionization.
+	// Find the highest and lowest redshfit to initialise interpolation of the mean number of IGM ionizing photon per baryon
     determine_zpp_min = REDSHIFT*0.999;
     for (R_ct=0; R_ct<NUM_FILTER_STEPS_FOR_Ts; R_ct++){
         if (R_ct==0){
@@ -601,15 +600,15 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	    zpp_interp_table[i] = determine_zpp_min + (determine_zpp_max - determine_zpp_min)*(float)i/((float)zpp_interp_points-1.0);
 	}
 
-	/* initialise interpolation of the mean collapse fraction for global reionization.
-	   compute 'FgtrM_st_SFR' corresponding to an array of redshift. */
-    initialise_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10);
-    printf("\n Completed initialise Fcoll_spline Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
+	/* initialise interpolation of the mean number of IGM ionizing photon per baryon for global reionization.
+	   compute 'Nion_ST' corresponding to an array of redshift. */
+    initialise_Nion_ST_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10);
+    printf("\n Completed initialise Nion_ST, Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	
-	/* initialise interpolation of the mean collapse fraction with respect to the X-ray heating.
-	   compute 'FgtrM_st_SFR' corresponding to an array of redshift, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
-    initialise_Xray_FgtrM_st_SFR_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, F_STAR10);
-    printf("\n Completed initialise Fcoll_spline for X-ray Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
+	/* initialise interpolation of the mean SFRD.
+	   compute 'Nion_ST' corresponding to an array of redshift, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
+    initialise_SFRD_ST_spline(zpp_interp_points,determine_zpp_min, determine_zpp_max, M_TURN, ALPHA_STAR, F_STAR10);
+    printf("\n Completed initialise SFRD using Sheth-Tormen halo mass function, Time = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	
 	// initialise redshift table corresponding to all the redshifts to initialise interpolation for the conditional mass function.
     zp_table = zp;
@@ -633,12 +632,12 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	  zp_table = ((1+prev_zp) / ZPRIME_STEP_FACTOR - 1);
     } 
 
-	/* generate a table for interpolation of the collapse fraction with respect to the X-ray heating, as functions of 
+	/* generate a table for interpolation of the SFRD using the conditional mass function, as functions of 
 	filtering scale, redshift and overdensity.
-	   Note that at a given zp, zpp values depends on the filtering scale R, i.e. f_coll(z(R),delta).
-	   Compute the conditional mass function, but assume f_{esc10} = 1 and \alpha_{esc} = 0. */
-	initialise_Xray_Fcollz_SFR_Conditional_table(Nsteps_zp,NUM_FILTER_STEPS_FOR_Ts,redshift_interp_table,R_values, M_TURN, ALPHA_STAR, F_STAR10);
-	printf("\n Generated the table of conditional mass function = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
+	   See eq. (8) in Park et al. (2018)
+	   Note that at a given zp, zpp values depends on the filtering scale R. */
+	initialise_SFRD_Conditional_table(Nsteps_zp,NUM_FILTER_STEPS_FOR_Ts,redshift_interp_table,R_values, M_TURN, ALPHA_STAR, F_STAR10);
+	printf("\n Generated the table of SFRD using conditional mass function = %06.2f min \n",(double)clock()/CLOCKS_PER_SEC/60.0);
 	
   }
   
@@ -650,12 +649,12 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   counter = 0;
   while (zp > REDSHIFT){
 
-	// New in v1.4: initialise interpolation of fcoll over zpp and overdensity.
+	// New in v1.4: initialise interpolation of SFRD over zpp and overdensity.
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
 	  arr_num = NUM_FILTER_STEPS_FOR_Ts*counter; // New
 	  for (i=0; i<NUM_FILTER_STEPS_FOR_Ts; i++) {
-        gsl_spline_init(FcollLow_zpp_spline[i], log10_overdense_low_table, log10_Fcollz_SFR_low_table[arr_num + i], NSFR_low);
-        spline(Overdense_high_table-1,Fcollz_SFR_high_table[arr_num + i]-1,NSFR_high,0,0,second_derivs_Fcoll_zpp[i]-1); 
+        gsl_spline_init(SFRDLow_zpp_spline[i], log10_overdense_low_table, log10_SFRD_z_low_table[arr_num + i], NSFR_low);
+        spline(Overdense_high_table-1,SFRD_z_high_table[arr_num + i]-1,NSFR_high,0,0,second_derivs_Nion_zpp[i]-1); 
 	  }
 	}
 
@@ -665,8 +664,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
     // check if we are in the really high z regime before the first stars..
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
-	  FgtrM_st_SFR_z(zp,&(Splined_Fcollzp_mean));
-      if ( Splined_Fcollzp_mean < 1e-15 )
+	  Nion_ST_z(zp,&(Splined_Nion_ST_zp));
+      if ( Splined_Nion_ST_zp < 1e-15 )
         NO_LIGHT = 1;
       else
         NO_LIGHT = 0;
@@ -680,7 +679,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
 	//New in v1.4
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-	  filling_factor_of_HI_zp = 1 - ION_EFF_FACTOR * Splined_Fcollzp_mean / (1.0 - x_e_ave); // fcoll including f_esc
+	  filling_factor_of_HI_zp = 1 - ION_EFF_FACTOR * Splined_Nion_ST_zp / (1.0 - x_e_ave); // fcoll including f_esc
 	}
 	else {
 	  filling_factor_of_HI_zp = 1 - HII_EFF_FACTOR * FgtrM_st(zp, M_MIN) / (1.0 - x_e_ave);
@@ -722,12 +721,13 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
 	  growth_zpp = dicke(zpp);
       //---------- interpolation for fcoll starts ----------
+	  // Here 'fcoll' is not the collpased fraction, but leave this name as is to simplify the variable name.
       if (delNL0[R_ct][box_ct]*growth_zpp < 1.5){
         if (delNL0[R_ct][box_ct]*growth_zpp < -1.) {
 		  fcoll = 0;
         }    
         else {
-          fcoll = gsl_spline_eval(FcollLow_zpp_spline[R_ct], log10(delNL0[R_ct][box_ct]*growth_zpp+1.), FcollLow_zpp_spline_acc[R_ct]);
+          fcoll = gsl_spline_eval(SFRDLow_zpp_spline[R_ct], log10(delNL0[R_ct][box_ct]*growth_zpp+1.), SFRDLow_zpp_spline_acc[R_ct]);
           fcoll = pow(10., fcoll);
         }    
       }    
@@ -737,7 +737,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
           // However, such densities should always be collapsed, so just set f_coll to unity. 
           // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
 		  //New
-          splint(Overdense_high_table-1,Fcollz_SFR_high_table[R_ct]-1,second_derivs_Fcoll_zpp[R_ct]-1,NSFR_high,delNL0[R_ct][box_ct]*growth_zpp,&(fcoll));
+          splint(Overdense_high_table-1,SFRD_z_high_table[R_ct]-1,second_derivs_Nion_zpp[R_ct]-1,NSFR_high,delNL0[R_ct][box_ct]*growth_zpp,&(fcoll));
         }    
         else {
 		  fcoll = 1.;
@@ -756,8 +756,8 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       fcoll_R /= (double) sample_ct;
 
 	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {// New in v1.4
-	    FgtrM_st_SFR_X_z(zpp,&(Splined_Fcollzpp_X_mean));
-	    ST_over_PS[R_ct] = Splined_Fcollzpp_X_mean / fcoll_R; 
+	    SFRD_ST_z(zpp,&(Splined_SFRD_ST_zpp));
+	    ST_over_PS[R_ct] = Splined_SFRD_ST_zpp / fcoll_R; 
 	  }
 	  else {
         ST_over_PS[R_ct] = FgtrM_st(zpp, M_MIN) / fcoll_R;
@@ -766,9 +766,9 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       if (DEBUG_ON){
 	    if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
       printf("ST/PS=%g, mean_ST=%g, mean_ps=%g\n, ratios of mean=%g\n", ST_over_PS[R_ct], 
-		 Splined_Fcollzpp_X_mean,
+		 Splined_SFRD_ST_zpp,
 	     FgtrM(zpp, M_MIN),
-	     Splined_Fcollzpp_X_mean/FgtrM(zpp, M_MIN)
+	     Splined_SFRD_ST_zpp/FgtrM(zpp, M_MIN)
 	     );
 		}
 		else {

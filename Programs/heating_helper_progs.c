@@ -22,12 +22,12 @@ float F_STAR10,F_ESC10,ALPHA_STAR,ALPHA_ESC,M_TURN,T_AST,Mlim_Fstar,Mlim_Fesc,M_
 double X_LUMINOSITY;
 float growth_zpp; // New in v1.4
 static float determine_zpp_max, determine_zpp_min,zpp_bin_width; // new in v1.4
-float *second_derivs_Fcoll_zpp[NUM_FILTER_STEPS_FOR_Ts]; // New
+float *second_derivs_Nion_zpp[NUM_FILTER_STEPS_FOR_Ts]; // New
 float *redshift_interp_table;
 int Nsteps_zp; //New in v1.4 
 float *zpp_interp_table; //New in v1.4
-gsl_interp_accel *FcollLow_zpp_spline_acc[NUM_FILTER_STEPS_FOR_Ts];
-gsl_spline *FcollLow_zpp_spline[NUM_FILTER_STEPS_FOR_Ts];
+gsl_interp_accel *SFRDLow_zpp_spline_acc[NUM_FILTER_STEPS_FOR_Ts];
+gsl_spline *SFRDLow_zpp_spline[NUM_FILTER_STEPS_FOR_Ts];
 
 int i; //TEST
 FILE *LOG;
@@ -339,7 +339,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 		  fcoll = 0;
         }
         else {
-          fcoll = gsl_spline_eval(FcollLow_zpp_spline[zpp_ct], log10(curr_delNL0[zpp_ct]*growth_zpp+1.), FcollLow_zpp_spline_acc[zpp_ct]);
+          fcoll = gsl_spline_eval(SFRDLow_zpp_spline[zpp_ct], log10(curr_delNL0[zpp_ct]*growth_zpp+1.), SFRDLow_zpp_spline_acc[zpp_ct]);
           fcoll= pow(10., fcoll);
         }
       }
@@ -348,7 +348,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
           // Usage of 0.99*Deltac arises due to the fact that close to the critical density, the collapsed fraction becomes a little unstable
           // However, such densities should always be collapsed, so just set f_coll to unity. 
           // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
-          splint(Overdense_high_table-1,Fcollz_SFR_high_table[zpp_ct]-1,second_derivs_Fcoll_zpp[zpp_ct]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll));
+          splint(Overdense_high_table-1,SFRD_z_high_table[zpp_ct]-1,second_derivs_Nion_zpp[zpp_ct]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll));
         }
         else {
           fcoll = 1.;
@@ -363,7 +363,6 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 		This is the same parameter with 't_STAR' (defined in ANAL_PARAMS.H).
 		If turn the new parametrization on, this is a free parameter.
 		*/
-	  //dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*dtdz(zpp)*dzpp;
 	  dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp))*fabs(dzpp);
 	}
 	else {
@@ -602,7 +601,7 @@ double tauX_integrand(double zhat, void *params){
   // New in v1.4
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
     //fcoll = FgtrM(zhat, M_MIN); // TEST
-	FgtrM_st_SFR_z(zhat,&(Splined_Fcollz_mean));
+	Nion_ST_z(zhat,&(Splined_Fcollz_mean));
 	fcoll = Splined_Fcollz_mean;
   }
   else {
@@ -639,7 +638,7 @@ double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_fact
        if (HI_filling_factor_zp > FRACT_FLOAT_ERR){
          // New in v1.4
          if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-		   FgtrM_st_SFR_z(zp,&(Splined_Fcollz_mean));
+		   Nion_ST_z(zp,&(Splined_Fcollz_mean));
 		   fcoll = Splined_Fcollz_mean;
 	       //fcoll = FgtrM(zp, M_MIN);//TEST
          }

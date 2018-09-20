@@ -34,8 +34,8 @@ float *Fcoll;
 void init_21cmMC_arrays() { // defined in Cosmo_c_files/ps.c
     
     Overdense_spline_SFR = calloc(NSFR_high,sizeof(float)); // New in v1.4
-    Fcoll_spline_SFR = calloc(NSFR_high,sizeof(float));
-    second_derivs_SFR = calloc(NSFR_high,sizeof(float));
+    Nion_spline = calloc(NSFR_high,sizeof(float));
+    second_derivs_Nion = calloc(NSFR_high,sizeof(float));
     xi_SFR = calloc((NGL_SFR+1),sizeof(float));
     wi_SFR = calloc((NGL_SFR+1),sizeof(float));
 }
@@ -49,8 +49,8 @@ void destroy_21cmMC_arrays() {
     free(second_derivs_dsigma);
 
     free(Overdense_spline_SFR); // New in v1.4
-    free(Fcoll_spline_SFR);
-    free(second_derivs_SFR);
+    free(Nion_spline);
+    free(second_derivs_Nion);
     free(xi_SFR);
     free(wi_SFR);
 }
@@ -100,12 +100,12 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
         *ALPHA_STAR = atof(argv[*arg_offset + min_argc+1]);
         *F_ESC10 = atof(argv[*arg_offset + min_argc+2]);
         *ALPHA_ESC = atof(argv[*arg_offset + min_argc+3]);
-        *M_TURN = atof(argv[*arg_offset + min_argc+4]); // Input value M_TURN
+        *M_TURN = atof(argv[*arg_offset + min_argc+4]); 
 		*T_AST = atof(argv[*arg_offset + min_argc+5]);
 		*X_LUMINOSITY = pow(10.,atof(argv[*arg_offset + min_argc+6]));
       }
       else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
-        *F_STAR10 = STELLAR_BARYON_FRAC;         // We need to set the parameters with some standard values later on.
+        *F_STAR10 = STELLAR_BARYON_FRAC;       
         *ALPHA_STAR = STELLAR_BARYON_PL;
         *F_ESC10 = ESC_FRAC;
         *ALPHA_ESC = ESC_PL;
@@ -126,7 +126,7 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
 		*X_LUMINOSITY = 0;
       }
       else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
-        *F_STAR10 = STELLAR_BARYON_FRAC;         // We need to set the parameters with some standard values later on.
+        *F_STAR10 = STELLAR_BARYON_FRAC;        
         *ALPHA_STAR = STELLAR_BARYON_PL;
         *F_ESC10 = ESC_FRAC;
         *ALPHA_ESC = ESC_PL;
@@ -182,20 +182,12 @@ int main(int argc, char ** argv){
   float global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
   *error_message = '\0';
-  //TEST
-  double mhalo_i,dmhalo,mhalo_min,mhalo_max,Fesc,Fesc2,Fesc3;
 
   int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
   
   double aveR = 0;
   unsigned long long Rct = 0;
 
-  /* TEST computing time */
-  double test1,test2,ratio1,ratio2;
-  time_t start, start2, end2, end;
-  double time_taken;
-  float dum; // TEST
-  start = clock();
     
   /*************************************************************************************/  
   /******** BEGIN INITIALIZATION ********/
@@ -223,11 +215,6 @@ int main(int argc, char ** argv){
     }
   }
 
-
-/*  if ((fabs(ALPHA_STAR) > FRACT_FLOAT_ERR) ||
-      (fabs(ALPHA_ESC) > FRACT_FLOAT_ERR) ){ // use the new galaxy parametrization in v1.4 (see ANAL_PARAMS.H)
-    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
-  }  */
 
   ZSTEP = PREV_REDSHIFT - REDSHIFT;
   fabs_dtdz = fabs(dtdz(REDSHIFT));
@@ -305,7 +292,10 @@ int main(int argc, char ** argv){
 
   // compute the mean collpased fraction at this redshift
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
-    mean_f_coll_st = FgtrM_st_SFR(REDSHIFT, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
+	// Here 'mean_f_coll_st' is not the mean collpased fraction, but leave this name as is to simplify the variable name.
+	// Nion_ST * ION_EFF_FACTOR = the mean number of IGM ionizing photon per baryon
+	// see eq. (17) in Park et al. 2018
+    mean_f_coll_st = Nion_ST(REDSHIFT, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
   }
   else { 
     mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
@@ -722,8 +712,8 @@ int main(int argc, char ** argv){
 	erfc_denom = sqrt(temparg);
 	    
 	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
-	  initialiseGL_FcollSFR(NGL_SFR, M_MIN/50.0, massofscaleR);
-	  initialiseFcollSFR_spline(REDSHIFT, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
+	  initialiseGL_Nion(NGL_SFR, M_MIN/50.0, massofscaleR);
+	  initialise_Nion_spline(REDSHIFT, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
 
 	for (x=0; x<HII_DIM; x++){
@@ -738,7 +728,10 @@ int main(int argc, char ** argv){
 		density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
 		if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
 		  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
-			FcollSpline_SFR(density_over_mean - 1,&(Splined_Fcoll));
+		  // Here again, 'Splined_Fcoll' and 'f_coll' are not the collpased fraction, but leave this name as is to simplify the variable name.
+		  // f_coll * ION_EFF_FACTOR = the number of IGM ionizing photon per baryon at a given overdensity.
+		  // see eq. (17) in Park et al. 2018
+			Nion_Spline_density(density_over_mean - 1,&(Splined_Fcoll));
 		  }
 		  else{ // we can assume the classic constant ionizing luminosity to halo mass ratio
 		    erfc_num = (Deltac - (density_over_mean-1)) /  growth_factor;
@@ -1027,12 +1020,6 @@ int main(int argc, char ** argv){
 	    F = NULL;
     }
   
-    /* TEST computing time */
-    end = clock();
-    time_taken = (end - start)/(CLOCKS_PER_SEC);
-    printf("\n");
-    printf("time taken = %1.6e sec \n", time_taken);
-    printf("\n");
 
 
 	  fprintf(stderr, error_message);

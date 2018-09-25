@@ -149,8 +149,8 @@ float GaussLegendreQuad_Nion(int n, float z, float M2, float delta1, float delta
 double dNion_ConditionallnM(double lnM, void *params);
 double Nion_ConditionalM(double z, double M1, double M2, double delta1, double delta2, double MassTurnover, double Alpha_star, double Alpha_esc, double Fstar10, double Fesc10, double Mlim_Fstar, double Mlim_Fesc);
 
-double dFdlnM_st_SFR (double lnM, void *params);
-double FgtrM_st_SFR (double z, double MassTurnover, double Alpha_star, double Alpha_esc, double Fstar10, double Fesc10, double Mlim_Fstar, double Mlim_Fesc);
+double dNion_ST(double lnM, void *params);
+double Nion_ST(double z, double MassTurnover, double Alpha_star, double Alpha_esc, double Fstar10, double Fesc10, double Mlim_Fstar, double Mlim_Fesc);
 /* New in v1.4 - part 3 of 4: end */
 
 double sigma_norm, R, theta_cmb, omhh, z_equality, y_d, sound_horizon, alpha_nu, f_nu, f_baryon, beta_c, d2fact, R_CUTOFF, DEL_CURR, SIG_CURR;

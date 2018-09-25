@@ -11,12 +11,25 @@
 #define KAPPA_10_pH_NPTS (int) 17
 
 /* Define some global variables; yeah i know it isn't "good practice" but doesn't matter */
-double zpp_edge[NUM_FILTER_STEPS_FOR_Ts], sigma_atR[NUM_FILTER_STEPS_FOR_Ts], sigma_Tmin[NUM_FILTER_STEPS_FOR_Ts], ST_over_PS[NUM_FILTER_STEPS_FOR_Ts], sum_lyn[NUM_FILTER_STEPS_FOR_Ts];
+double zpp_edge[NUM_FILTER_STEPS_FOR_Ts], sigma_atR[NUM_FILTER_STEPS_FOR_Ts], sigma_Tmin[NUM_FILTER_STEPS_FOR_Ts], ST_over_PS[NUM_FILTER_STEPS_FOR_Ts], sum_lyn[NUM_FILTER_STEPS_FOR_Ts], R_values[NUM_FILTER_STEPS_FOR_Ts];
 unsigned long long box_ct;
 double const_zp_prefactor, dt_dzp, x_e_ave;
 double growth_factor_zp, dgrowth_factor_dzp, PS_ION_EFF;
 int NO_LIGHT;
 float M_MIN_at_z, M_MIN_at_zp;
+int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY; // New in v1.4
+float F_STAR10,F_ESC10,ALPHA_STAR,ALPHA_ESC,M_TURN,T_AST,Mlim_Fstar,Mlim_Fesc,M_MIN,Splined_Fcoll;//,Splined_Fcollz_mean; // New in v1.4
+double X_LUMINOSITY;
+float growth_zpp; // New in v1.4
+static float determine_zpp_max, determine_zpp_min,zpp_bin_width; // new in v1.4
+float *second_derivs_Nion_zpp[NUM_FILTER_STEPS_FOR_Ts]; // New
+float *redshift_interp_table;
+int Nsteps_zp; //New in v1.4 
+float *zpp_interp_table; //New in v1.4
+gsl_interp_accel *SFRDLow_zpp_spline_acc[NUM_FILTER_STEPS_FOR_Ts];
+gsl_spline *SFRDLow_zpp_spline[NUM_FILTER_STEPS_FOR_Ts];
+
+int i; //TEST
 FILE *LOG;
 
 /* initialization routine */
@@ -38,7 +51,7 @@ double T_RECFAST(float z, int flag);
 void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[], 
 	       double freq_int_ion[], double freq_int_lya[], 
 	       int COMPUTE_Ts, double y[], double deriv[]);
-
+		   //float Mturn, float ALPHA_STAR, float F_STAR10, float T_AST);
 
 float dfcoll_dz(float z, float Tmin, float del_bias, float sig_bias);
 
@@ -48,6 +61,8 @@ double dT_comp(double z, double TK, double xe);
 /* Calculates the optical depth for a photon arriving at z = zp with frequency nu,
  emitted at z = zpp */
 double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp); 
+// New in v1.4
+//double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10);
 
 /* The total weighted HI + HeI + HeII  cross-section in pcm^-2 */
 double species_weighted_x_ray_cross_section(double nu, double x_e); 
@@ -283,12 +298,14 @@ double spectral_emissivity(double nu_norm, int flag)
 *********************************************************************/
 void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[], 
 	       double freq_int_ion[], double freq_int_lya[], 
-	       int COMPUTE_Ts, double y[], double deriv[]){
+	       int COMPUTE_Ts, double y[], double deriv[]){//, float M_TURN, float ALPHA_STAR, float F_STAR10, float T_AST){
   double  dfdzp, dadia_dzp, dcomp_dzp, dxheat_dt, ddz, dxion_source_dt, dxion_sink_dt;
   double zpp, dzpp, nu_temp;
-  int zpp_ct;
+  int zpp_ct,ithread;
   double T, x_e, dTdzp, dx_edzp, dfcoll, zpp_integrand;
   double dxe_dzp, n_b, dspec_dzp, dxheat_dzp, dxlya_dt, dstarlya_dt;
+  // New in v1.4
+  float growth_zpp,fcoll;
 
   x_e = y[0];
   T = y[1];
@@ -296,6 +313,8 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
 
 
   // First, let's do the trapazoidal integration over zpp
+  ithread = omp_get_thread_num();
+
   dxheat_dt = 0;
   dxion_source_dt = 0;
   dxlya_dt = 0;
@@ -311,31 +330,69 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
       zpp = (zpp_edge[zpp_ct]+zpp_edge[zpp_ct-1])*0.5;
       dzpp = zpp_edge[zpp_ct-1] - zpp_edge[zpp_ct];
     }
+	//New in v1.4
+    if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+	  growth_zpp = dicke(zpp);
+	  // Interpolate Fcoll -------------------------------------------------------------------------------------
+	  if (curr_delNL0[zpp_ct]*growth_zpp < 1.5){
+        if (curr_delNL0[zpp_ct]*growth_zpp < -1.) {
+		  fcoll = 0;
+        }
+        else {
+          fcoll = gsl_spline_eval(SFRDLow_zpp_spline[zpp_ct], log10(curr_delNL0[zpp_ct]*growth_zpp+1.), SFRDLow_zpp_spline_acc[zpp_ct]);
+          fcoll= pow(10., fcoll);
+        }
+      }
+      else {
+        if (curr_delNL0[zpp_ct]*growth_zpp < 0.99*Deltac) {
+          // Usage of 0.99*Deltac arises due to the fact that close to the critical density, the collapsed fraction becomes a little unstable
+          // However, such densities should always be collapsed, so just set f_coll to unity. 
+          // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
+          splint(Overdense_high_table-1,SFRD_z_high_table[zpp_ct]-1,second_derivs_Nion_zpp[zpp_ct]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll));
+        }
+        else {
+          fcoll = 1.;
+        }
+      }
+      //printf("delta = %.4f, fcoll1 = %.4e, fcoll2 = %.4e\n",Overdensity,fcoll1,fcoll2);
+      if (fcoll > 1.) fcoll = 1.;
+	  // Find Fcoll end ----------------------------------------------------------------------------------
 
-    dfcoll = dfcoll_dz(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct]);
-    dfcoll *= ST_over_PS[zpp_ct] * dzpp; // this is now a positive quantity
+	  /* Instead of dfcoll/dz we compute fcoll/(T_AST*H(z)^-1)*(dt/dz), 
+	    where T_AST is the typical star-formation timescale, in units of the Hubble time.
+		This is the same parameter with 't_STAR' (defined in ANAL_PARAMS.H).
+		If turn the new parametrization on, this is a free parameter.
+		*/
+	  dfcoll = ST_over_PS[zpp_ct]*(double)fcoll*hubble(zpp)/T_AST*fabs(dtdz(zpp))*fabs(dzpp);
+	}
+	else {
+      dfcoll = dfcoll_dz(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct]);
+      dfcoll *= ST_over_PS[zpp_ct] * dzpp; // this is now a positive quantity
+	  //dfcoll = ST_over_PS[zpp_ct]*sigmaparam_FgtrM_bias(zpp, sigma_Tmin[zpp_ct], curr_delNL0[zpp_ct], sigma_atR[zpp_ct])*hubble(zpp)/0.7*fabs(dtdz(zpp));//TEST
+	}
     zpp_integrand = dfcoll * (1+curr_delNL0[zpp_ct]*dicke(zpp)) * pow(1+zpp, -X_RAY_SPEC_INDEX);
+
     dxheat_dt += zpp_integrand * freq_int_heat[zpp_ct];
     dxion_source_dt += zpp_integrand * freq_int_ion[zpp_ct];
     if (COMPUTE_Ts){
       dxlya_dt += zpp_integrand * freq_int_lya[zpp_ct];
       dstarlya_dt += dfcoll * (1+curr_delNL0[zpp_ct]*dicke(zpp)) * pow(1+zp,2)*(1+zpp)
-	* sum_lyn[zpp_ct];
+                     * sum_lyn[zpp_ct];
     }
   }
+
   // add prefactors
   dxheat_dt *= const_zp_prefactor;
   dxion_source_dt *= const_zp_prefactor;
   if (COMPUTE_Ts){
     dxlya_dt *= const_zp_prefactor*n_b;
-    dstarlya_dt *= F_STAR * C * N_b0 / FOURPI;
+    dstarlya_dt *= F_STAR10 * C * N_b0 / FOURPI;
 
     /*
     if ((dxlya_dt < 0) || (dstarlya_dt<0)){
          printf("***Jalpha_x=%e, Jalpha_star=%e\n", dxlya_dt, dstarlya_dt);
-	 for (zpp_ct = 0; zpp_ct < NUM_FILTER_STEPS_FOR_Ts; zpp_ct++)
-	   printf("freq_int=%e, sum_lyn=%e\n", freq_int_lya[zpp_ct], sum_lyn[zpp_ct]);
-
+  for (zpp_ct = 0; zpp_ct < NUM_FILTER_STEPS_FOR_Ts; zpp_ct++)
+    printf("freq_int=%e, sum_lyn=%e\n", freq_int_lya[zpp_ct], sum_lyn[zpp_ct]);
     }
     */
   }
@@ -345,6 +402,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
   /*** First let's do dxe_dzp ***/
   dxion_sink_dt = alpha_A(T) * CLUMPING_FACTOR * x_e*x_e * f_H * n_b;
   dxe_dzp = dt_dzp*(dxion_source_dt - dxion_sink_dt);
+  //printf("In evolveInt: z=%.4f, dt_dzp=%.4e, dxion_source_dt=%.4e, dxion_sink_dt==%.4e\n",zpp,dt_dzp,dxion_source_dt,dxion_sink_dt);
   deriv[0] = dxe_dzp;
   /*
   if (box_ct==1000000){
@@ -389,8 +447,6 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
   deriv[3] = dxheat_dzp;
   deriv[4] = dt_dzp*dxion_source_dt;
 }
-
-
 
 /*
   Evaluates the frequency integral in the Tx evolution equation
@@ -531,15 +587,26 @@ double species_weighted_x_ray_cross_section(double nu, double x_e){
 */
 typedef struct{
   double nu_0, x_e, ion_eff;
+  // New in v1.4
+  //double nu_0, x_e, ion_eff,M_TURN,ALPHA_STAR,F_STAR10;
 } tauX_params;
 double tauX_integrand(double zhat, void *params){
   double n, drpropdz, nuhat, HI_filling_factor_zhat, sigma_tilde, fcoll;
   tauX_params *p = (tauX_params *) params;
+  float Splined_Fcollz_mean; // New in v1.4: find fcoll from interpolation table
 
   drpropdz = C * dtdz(zhat);
   n = N_b0 * pow(1+zhat, 3);
   nuhat = p->nu_0 * (1+zhat);
-  fcoll = FgtrM(zhat, get_M_min_ion(zhat));
+  // New in v1.4
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+    //fcoll = FgtrM(zhat, M_MIN); // TEST
+	Nion_ST_z(zhat,&(Splined_Fcollz_mean));
+	fcoll = Splined_Fcollz_mean;
+  }
+  else {
+    fcoll = FgtrM(zhat, M_MIN);
+  }
   if (fcoll < 1e-20)
     HI_filling_factor_zhat = 1;
   else    
@@ -547,16 +614,18 @@ double tauX_integrand(double zhat, void *params){
   if (HI_filling_factor_zhat < 1e-4) HI_filling_factor_zhat = 1e-4; //set a floor for post-reionization stability
 
   sigma_tilde = species_weighted_x_ray_cross_section(nuhat, p->x_e);
-  //  printf("in taux integrand, %e, %e, %e, %e, %e, %f, %e, %e\n", drpropdz * n * HI_filling_factor_zhat * sigma_tilde, drpropdz, n, HI_filling_factor_zhat, sigma_tilde, zhat, p->ion_eff, FgtrM(zhat, get_M_min_ion(zhat)));
+
   return drpropdz * n * HI_filling_factor_zhat * sigma_tilde;
 }
 double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp){
+//double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_factor_zp, float M_TURN, float ALPHA_STAR, float F_STAR10){
   double result, error, fcoll;
        gsl_function F;
        double rel_tol  = 0.005; //<- relative tolerance
        gsl_integration_workspace * w 
 	 = gsl_integration_workspace_alloc (1000);
        tauX_params p;
+  float Splined_Fcollz_mean; // New in v1.4: compute function FgtrM_st_SFR using interpolation.
 
        /*
        if (DEBUG_ON)
@@ -567,12 +636,20 @@ double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_fact
        p.x_e = x_e;
        // effective efficiency for the PS (not ST) mass function; quicker to compute...
        if (HI_filling_factor_zp > FRACT_FLOAT_ERR){
-	 fcoll = FgtrM(zp, M_MIN_at_zp);
-	 p.ion_eff = (1.0 - HI_filling_factor_zp) / fcoll * (1.0 - x_e_ave);
-	 PS_ION_EFF = p.ion_eff;
+         // New in v1.4
+         if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+		   Nion_ST_z(zp,&(Splined_Fcollz_mean));
+		   fcoll = Splined_Fcollz_mean;
+	       //fcoll = FgtrM(zp, M_MIN);//TEST
+         }
+         else {
+	       fcoll = FgtrM(zp, M_MIN);
+	     }
+	     p.ion_eff = (1.0 - HI_filling_factor_zp) / fcoll * (1.0 - x_e_ave);
+	     PS_ION_EFF = p.ion_eff;
        }
        else
-	 p.ion_eff = PS_ION_EFF; // uses the previous one in post reionization regime
+	   p.ion_eff = PS_ION_EFF; // uses the previous one in post reionization regime
 
        F.params = &p;
        gsl_integration_qag (&F, zpp, zp, 0, rel_tol,
@@ -595,6 +672,8 @@ double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_fact
 */
 typedef struct{
   double x_e, zp, zpp, HI_filling_factor_zp;
+  // New in v1.4
+  //double x_e, zp, zpp, HI_filling_factor_zp, M_TURN, ALPHA_STAR, F_STAR10;
 } nu_tau_one_params;
 double nu_tau_one_helper(double nu, void * params){
   nu_tau_one_params *p = (nu_tau_one_params *) params;
@@ -609,13 +688,10 @@ double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp
   double relative_error = 0.02;
   nu_tau_one_params p;
 
- 
   if (DEBUG_ON){
     printf("in nu tau one, called with parameters: zp=%f, zpp=%f, x_e=%e, HI_filling_at_zp=%e\n",
 	   zp, zpp, x_e, HI_filling_factor_zp);
   }
-
-
 
   // check if too ionized 
   if (x_e > 0.9999){
@@ -671,6 +747,7 @@ double nu_tau_one(double zp, double zpp, double x_e, double HI_filling_factor_zp
   // deallocate and return
   gsl_root_fsolver_free (s);
   if (DEBUG_ON) printf("Root found at %e eV", r/NU_over_EV);
+
   return r;
 }
 
@@ -692,7 +769,6 @@ float dfcoll_dz(float z, float sigma_min, float del_bias, float sig_bias)
   ans = (fc1 - fc2)/(2.0*dz);
   return ans;
 }
-
 
 /* Compton heating term */
 double dT_comp(double z, double TK, double xe)
@@ -842,6 +918,13 @@ float get_Ts(float z, float delta, float TK, float xe, float Jalpha, float * cur
     TS = 1.0/TSinv;
     *curr_xalpha = 0;
   }
+
+  if((TS < 0.)&&(SUBCELL_RSD==1)) {
+        // Found that in extreme cases it could produce a negative spin temperature
+        // If negative, it is a very small number. Take the absolute value, the optical depth can deal with very large numbers, so ok to be small
+        TS = fabs(TS);
+    }
+    
 
   return TS;
 }

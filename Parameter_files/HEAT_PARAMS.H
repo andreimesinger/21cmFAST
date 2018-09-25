@@ -18,6 +18,15 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
 */
 #define ZETA_X (double) (2.0e56) // 2e56 ~ 0.3 X-ray photons per stellar baryon
 
+/*
+  Soft band X-ray luminosity, L_X. Used for determining the number of X-ray photons produced per stellar baryon.
+  In v1.4, the old ZETA_X is replaced with a soft-band luminosity L_X. The soft band luminosity now determines the normalisation, 
+ and is available as a free parameter. This is defined as the 2keV luminosity, hence NU_X_BAND_MAX = 2000.00.
+  Defined as log10(L_X). E.g. 40 = log10(10^40)
+*/
+#define L_X (double) (40.5)
+#define NU_X_BAND_MAX (double) (2000*NU_over_EV)
+
 
 /*
   The fraction of baryons converted to stars
@@ -36,13 +45,13 @@ NOTE:  We encourage the user to perform their own convergance tests if modifying
 /*
   X-Ray spectral index at frequencies higher than NU_X_THRESH
  */
-#define X_RAY_SPEC_INDEX (double) (1.2)
+#define X_RAY_SPEC_INDEX (double) (1.0)
 
 
 /*
   Minimum virial temperature (in K) of halos hosting X-ray sources responsible for heating the IGM
 */
-#define X_RAY_Tvir_MIN (double) (ION_Tvir_MIN)
+#define X_RAY_Tvir_MIN (double) (1e4) // WILL BE REMOVED IN v1.4
 
 
 /*
@@ -73,8 +82,8 @@ Filter choice used for smoothing the linear density field to obtain the collapse
 #define R_XLy_MAX (float) (500)
 
 /*
-  Number of spherical anulli used to compute df_coll/dz' in the simulation box.
-  The spherical annulii are evenly spaced in log R, ranging from the cell size to the box size.
+  Number of spherical annuli used to compute df_coll/dz' in the simulation box.
+  The spherical annuli are evenly spaced in log R, ranging from the cell size to the box size.
   Ts.c will create this many boxes of size HII_DIM, so be wary of memory usage if values are high.
 */
 #define NUM_FILTER_STEPS_FOR_Ts (int) (40)
@@ -123,8 +132,8 @@ Filter choice used for smoothing the linear density field to obtain the collapse
 /*
   Number of ionizing photons per baryon of the two stellar species
 */
-#define Pop2_ion (float) (4361)
-#define Pop3_ion (float) (44021)
+#define Pop2_ion (float) (N_GAMMA_UV)
+#define Pop3_ion (float) (50000)
 
 /*
   Flag to turn off or on verbose status messages in Ts.  The GSL libraries are very finicky,

@@ -17,7 +17,8 @@
 #define ZHIGH  Z_HEAT_MAX
 
 int main(int argc, char ** argv){
-  float Z, M, M_MIN, nf;
+  //float Z, M, M_MIN, nf;
+  float Z, M, nf;
   char cmnd[1000];
   FILE *LOG;
   time_t start_time, curr_time;
@@ -38,6 +39,16 @@ int main(int argc, char ** argv){
   system("mkdir ../Output_files/Deldel_T_power_spec");
   system("mkdir ../Redshift_interpolate_filelists");
   //  system("mkdir ../Lighttravel_filelists");
+
+  // remove some of the previous (astro) files which might conflict with current run
+  system("rm ../Boxes/Ts_evolution/*");
+  system("rm ../Boxes/Ts_*");
+  system("rm ../Boxes/delta_T_*");
+  system("rm ../Boxes/xH_*");
+  system("rm ../Boxes/Nrec_*");
+  system("rm ../Boxes/z_first*");
+  system("rm ../Output_files/Deldel_T_power_spec/*");  
+
   init_ps();
 
   // open log file
@@ -51,18 +62,18 @@ int main(int argc, char ** argv){
 
   fprintf(stderr, "Calling init to set up the initial conditions\n");
   fprintf(LOG, "Calling init to set up the initial conditions\n");
-  system("./init"); // you only need this call once per realization
+  //system("./init"); // you only need this call once per realization
 
   Z = ZLOW*1.0001; // match rounding convention from Ts.c
 
    // call Ts on the lowest redshift
   if (USE_TS_IN_21CM){
-    sprintf(cmnd, "./perturb_field %.2f", Z);
-    time(&curr_time);
-    fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
-    fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
-    fflush(NULL);
-    system(cmnd);
+    //sprintf(cmnd, "./perturb_field %.2f", Z);
+    //time(&curr_time);
+    //fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
+    //fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
+    //fflush(NULL);
+    //system(cmnd);
     
     sprintf(cmnd, "./Ts %.2f", Z);
     time(&curr_time);
@@ -81,7 +92,7 @@ int main(int argc, char ** argv){
   while (Z >= ZLOW){
 
     //set the minimum source mass
-    M_MIN = get_M_min_ion(Z);
+    //M_MIN = get_M_min_ion(Z);
 
     // if USE_HALO_FIELD is turned on in ANAL_PARAMS.H, run the halo finder
     if (USE_HALO_FIELD){
@@ -105,12 +116,12 @@ int main(int argc, char ** argv){
     }
 
     // shift density field and update velocity field
-    sprintf(cmnd, "./perturb_field %.2f", Z);
-    time(&curr_time);
-    fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
-    fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
-    fflush(NULL);
-    system(cmnd);
+    //sprintf(cmnd, "./perturb_field %.2f", Z);
+    //time(&curr_time);
+    //fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
+    //fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
+    //fflush(NULL);
+    //system(cmnd);
     // end of solely redshift dependent things, now do ionization stuff
 
 
@@ -149,15 +160,16 @@ int main(int argc, char ** argv){
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "./delta_T %06.2f ../Boxes/xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/xH_z%06.2f_nf*_%i_%.0fMpc ../Boxes/Ts_z%06.2f_*_%.0fMpc", Z, Z, HII_DIM, BOX_LEN, Z, BOX_LEN);
       else
-	sprintf(cmnd, "./delta_T %06.2f ../Boxes/xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/xH_nohalos_z%06.2f_nf*_%i_%.0fMpc ../Boxes/Ts_z%06.2f_*_%.0fMpc", Z, Z, HII_DIM, BOX_LEN, Z, BOX_LEN);
       break;
     default:
       if (USE_HALO_FIELD)
-	sprintf(cmnd, "./delta_T %06.2f ../Boxes/sphere_xH_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/sphere_xH_z%06.2f_nf*_%i_%.0fMpc ../Boxes/Ts_z%06.2f_*_%.0fMpc", Z, Z, HII_DIM, BOX_LEN, Z, BOX_LEN);
       else
-	sprintf(cmnd, "./delta_T %06.2f ../Boxes/sphere_xH_nohalos_z%06.2f_nf*_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc ../Boxes/Ts_z%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_*Pop%i_%i*_%.0fMpc", Z, Z, HII_EFF_FACTOR, EFF_FACTOR_PL_INDEX, HII_FILTER, M_MIN, R_BUBBLE_MAX, HII_DIM, BOX_LEN, Z, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, Pop, HII_DIM, BOX_LEN);
+	sprintf(cmnd, "./delta_T %06.2f ../Boxes/sphere_xH_nohalos_z%06.2f_nf*_%i_%.0fMpc ../Boxes/Ts_z%06.2f_*_%.0fMpc", Z, Z, HII_DIM, BOX_LEN, Z, BOX_LEN);
+      break;
     }
     time(&curr_time);
     fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, -difftime(start_time, curr_time)/60.0);
@@ -202,6 +214,18 @@ int main(int argc, char ** argv){
     fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
     fflush(NULL);
   }
+
+  sprintf(cmnd, "./extract_delTps.pl 0.1 ../Output_files/Deldel_T_power_spec/ps_z0* > Power_k0.1");
+  system(cmnd);
+  fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
+  fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
+  fflush(NULL);
+
+  sprintf(cmnd, "./redshift_interpolate_boxes 0 ../Redshift_interpolate_filelists/delta_T_200_300Mpc");
+  system(cmnd);
+  fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
+  fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
+  fflush(NULL);
   
   fclose(LOG);
   return 0;

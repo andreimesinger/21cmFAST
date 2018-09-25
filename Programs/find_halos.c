@@ -262,20 +262,7 @@ int main(int argc, char ** argv){
   delta_crit = Deltac; // for now set to spherical; check if we want elipsoidal later
 
   //set the minimum source mass
-  if (ION_M_MIN < 0){ // use the virial temperature for Mmin
-    if (ION_Tvir_MIN < 9.99999e3) // neutral IGM
-      M_MIN = TtoM(REDSHIFT, ION_Tvir_MIN, 1.22);
-    else // ionized IGM
-      M_MIN = TtoM(REDSHIFT, ION_Tvir_MIN, 0.6);
-  }
-  else if (ION_Tvir_MIN < 0){ // use the mass
-    M_MIN = ION_M_MIN;
-  }
-  else{
-    fprintf(stderr, "You have to \"turn-off\" either the ION_M_MIN or \
-                     the ION_Tvir_MIN option in ANAL_PARAMS.H\nAborting...\n");
-    return -1;
-  }
+  M_MIN = M_TURNOVER;
 
   // open log file
   system("mkdir ../Log_files");

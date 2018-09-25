@@ -2,7 +2,12 @@
 #include "heating_helper_progs.c"
 
 /*
-  USAGE: find_HII_bubbles [-p <num of processors>] <redshift> [<previous redshift>]  [<ionization efficiency factor zeta>] [<Tvir_min> <ionizing mfp in ionized IGM> <Alpha, power law for ionization efficiency>]
+  USAGE: find_HII_bubbles [-p <num of processors>] <redshift> [<previous redshift>]
+  [<stellar fraction for 10^10 Msun halos> <power law index for stellar fraction halo mass scaling> 
+   <escape fraction for 10^10 Msun halos> <power law index for escape fraction halo mass scaling>
+   <turn-over scale for the duty cycle of galaxies, in units of halo mass>] [<Soft band X-ray luminosity>]
+
+   final optional parameter is MFP (depricated in v1.4)
 
   Program FIND_HII_BUBBLES generates the ionization field in Boxes/
 
@@ -28,60 +33,40 @@ float *Fcoll;
 
 void init_21cmMC_arrays() { // defined in Cosmo_c_files/ps.c
     
-    Overdense_spline_GL_low = calloc(Nlow,sizeof(float));
-    Fcoll_spline_GL_low = calloc(Nlow,sizeof(float));
-    second_derivs_low_GL = calloc(Nlow,sizeof(float));
-    Overdense_spline_GL_high = calloc(Nhigh,sizeof(float));
-    Fcoll_spline_GL_high = calloc(Nhigh,sizeof(float));
-    second_derivs_high_GL = calloc(Nhigh,sizeof(float));
-    
-    Fcoll = (float *) malloc(sizeof(float)*HII_TOT_FFT_NUM_PIXELS);
-    
-    xi_low = calloc((NGLlow+1),sizeof(float));
-    wi_low = calloc((NGLlow+1),sizeof(float));
-    
-    xi_high = calloc((NGLhigh+1),sizeof(float));
-    wi_high = calloc((NGLhigh+1),sizeof(float));
-    
+    Overdense_spline_SFR = calloc(NSFR_high,sizeof(float)); // New in v1.4
+    Nion_spline = calloc(NSFR_high,sizeof(float));
+    second_derivs_Nion = calloc(NSFR_high,sizeof(float));
+    xi_SFR = calloc((NGL_SFR+1),sizeof(float));
+    wi_SFR = calloc((NGL_SFR+1),sizeof(float));
 }
 
 void destroy_21cmMC_arrays() {
-    
-    free(Fcoll);
-    
-    free(Overdense_spline_GL_low);
-    free(Fcoll_spline_GL_low);
-    free(second_derivs_low_GL);
-    free(Overdense_spline_GL_high);
-    free(Fcoll_spline_GL_high);
-    free(second_derivs_high_GL);
-    
-    free(xi_low);
-    free(wi_low);
-    
-    free(xi_high);
-    free(wi_high);
     
     free(Mass_Spline);
     free(Sigma_Spline);
     free(dSigmadm_Spline);
     free(second_derivs_sigma);
     free(second_derivs_dsigma);
+
+    free(Overdense_spline_SFR); // New in v1.4
+    free(Nion_spline);
+    free(second_derivs_Nion);
+    free(xi_SFR);
+    free(wi_SFR);
 }
 
 
 FILE *LOG;
 unsigned long long SAMPLING_INTERVAL = (((unsigned long long)(HII_TOT_NUM_PIXELS/1.0e6)) + 1); //used to sample density field to compute mean collapsed fraction
 
-/* FUNCTION PARSE_ARGUMENTS PARSES THE COMMAND LINE ARGUMENTS, RETURNING 1 if correct format and zero otherwise */
-int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, float * ION_EFF_FACTOR,
-		    float * TVIR_MIN, float * MFP, float * ALPHA, float * REDSHIFT, float * PREV_REDSHIFT){
+int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, float * F_STAR10, 
+					float * ALPHA_STAR, float * F_ESC10, float * ALPHA_ESC, float * M_TURN, float * T_AST, double * X_LUMINOSITY, float * MFP, 
+					float * REDSHIFT, float * PREV_REDSHIFT){
 
   int min_argc = 2;
 
   if (INHOMO_RECO)
     min_argc++;
-
   
   // check if user wants to specify the multi threading
   if ((argc > min_argc) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
@@ -95,32 +80,64 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
   }
 
   // parse the remaining arguments
-  if (argc == (*arg_offset + min_argc)){
-    *ION_EFF_FACTOR = HII_EFF_FACTOR; // use default from ANAL_PARAMS.H
-    *TVIR_MIN = ION_Tvir_MIN;
-    *MFP = R_BUBBLE_MAX;
-    *ALPHA = 0;
-  }
-  else if (argc == (*arg_offset + min_argc+1)){ // just use parameter efficiency
-    *ION_EFF_FACTOR = atof(argv[*arg_offset + min_argc]); // use command line parameter
-    *TVIR_MIN = ION_Tvir_MIN;
-    *MFP = R_BUBBLE_MAX;
-    *ALPHA = 0;
-  }
-  else if (argc == (*arg_offset + min_argc+3)){ // use all reionization command line parameters, other than ALPHA
-    *ION_EFF_FACTOR = atof(argv[*arg_offset + min_argc]);
-    *TVIR_MIN = atof(argv[*arg_offset+min_argc+1]);
-    *MFP = atof(argv[*arg_offset+min_argc+2]);
-    *ALPHA = 0;
-  }
-  else if (argc == (*arg_offset+min_argc+4)){ // use all reionization command line parameters
-    *ION_EFF_FACTOR = atof(argv[*arg_offset+min_argc]);
-    *TVIR_MIN = atof(argv[*arg_offset+min_argc+1]);
-    *MFP = atof(argv[*arg_offset+min_argc+2]);
-    *ALPHA = atof(argv[*arg_offset+min_argc+3]);
-  }
-  else{ return 0;} // format is not allowed
-  
+  if (SHARP_CUTOFF) {
+	if (argc == (*arg_offset + min_argc)){
+      *MFP = R_BUBBLE_MAX;
+      *F_STAR10 = STELLAR_BARYON_FRAC;     
+      *ALPHA_STAR = STELLAR_BARYON_PL;
+      *F_ESC10 = ESC_FRAC;
+      *ALPHA_ESC = ESC_PL;
+      *M_TURN = M_TURNOVER;
+      *T_AST = t_STAR;
+	  *X_LUMINOSITY = 0;
+	}
+    else{ return 0;} // format is not allowed
+  } 
+  else {
+    if (USE_TS_IN_21CM) {
+      if (argc == (*arg_offset + min_argc+7)){
+        *F_STAR10 = atof(argv[*arg_offset + min_argc]);
+        *ALPHA_STAR = atof(argv[*arg_offset + min_argc+1]);
+        *F_ESC10 = atof(argv[*arg_offset + min_argc+2]);
+        *ALPHA_ESC = atof(argv[*arg_offset + min_argc+3]);
+        *M_TURN = atof(argv[*arg_offset + min_argc+4]); 
+		*T_AST = atof(argv[*arg_offset + min_argc+5]);
+		*X_LUMINOSITY = pow(10.,atof(argv[*arg_offset + min_argc+6]));
+      }
+      else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
+        *F_STAR10 = STELLAR_BARYON_FRAC;       
+        *ALPHA_STAR = STELLAR_BARYON_PL;
+        *F_ESC10 = ESC_FRAC;
+        *ALPHA_ESC = ESC_PL;
+        *M_TURN = M_TURNOVER;
+		*T_AST = t_STAR;
+		*X_LUMINOSITY = pow(10.,L_X);
+      }
+      else{ return 0;} // format is not allowed
+	}
+    else {
+      if (argc == (*arg_offset + min_argc+5)){
+        *F_STAR10 = atof(argv[*arg_offset + min_argc]);
+        *ALPHA_STAR = atof(argv[*arg_offset + min_argc+1]);
+        *F_ESC10 = atof(argv[*arg_offset + min_argc+2]);
+        *ALPHA_ESC = atof(argv[*arg_offset + min_argc+3]);
+        *M_TURN = atof(argv[*arg_offset + min_argc+4]); // Input value M_TURN
+		*T_AST = t_STAR;
+		*X_LUMINOSITY = 0;
+      }
+      else if (argc == (*arg_offset + min_argc)){ //These parameters give the result which is the same with the default model.
+        *F_STAR10 = STELLAR_BARYON_FRAC;        
+        *ALPHA_STAR = STELLAR_BARYON_PL;
+        *F_ESC10 = ESC_FRAC;
+        *ALPHA_ESC = ESC_PL;
+        *M_TURN = M_TURNOVER;
+		*T_AST = t_STAR;
+		*X_LUMINOSITY = 0;
+      }
+      else{ return 0;} // format is not allowed
+	}
+	*MFP = R_BUBBLE_MAX;
+  } 
 
   *REDSHIFT = atof(argv[*arg_offset+1]);
   if (INHOMO_RECO){
@@ -133,8 +150,8 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
   else
     *PREV_REDSHIFT = *REDSHIFT+0.2; // dummy variable which is not used
 
-   fprintf(stderr, "find_HII_bubbles: command line parameters are as follows\nnum threads=%i, zeta=%g, Tvirmin=%g K, mfp=%g Mpc, alpha=%g, z=%g, prev z=%g\n",
-	  *num_th, *ION_EFF_FACTOR, *TVIR_MIN, *MFP, *ALPHA, *REDSHIFT, *PREV_REDSHIFT);
+   fprintf(stderr, "find_HII_bubbles: command line parameters are as follows\nnum threads=%i, f_star10=%g, alpha_satr=%g, f_esc10=%g, alpha_esc=%g, Mturn=%g, t_star=%g, L_X=%g, z=%g, prev z=%g\n",
+	  *num_th, *F_STAR10, *ALPHA_STAR, *F_ESC10, *ALPHA_ESC, *M_TURN, *T_AST, *X_LUMINOSITY, *REDSHIFT, *PREV_REDSHIFT);
 
   return 1;
 }
@@ -160,10 +177,13 @@ int main(int argc, char ** argv){
   i=0;
   double t_ast, dfcolldt, Gamma_R_prefactor, rec;
   float nua, dnua, temparg, Gamma_R, z_eff;
-  float ALPHA =  EFF_FACTOR_PL_INDEX;
-  float growth_factor_dz, global_xH_m, fabs_dtdz, ZSTEP;
+  float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, Mlim_Fstar, Mlim_Fesc; //New in v1.4
+  double X_LUMINOSITY;
+  float global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
   *error_message = '\0';
+
+  int HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 0;
   
   double aveR = 0;
   unsigned long long Rct = 0;
@@ -172,51 +192,65 @@ int main(int argc, char ** argv){
   /*************************************************************************************/  
   /******** BEGIN INITIALIZATION ********/
   /*************************************************************************************/  
-  
+
   // PARSE COMMAND LINE ARGUMENTS
-  if ( !parse_arguments(argc, argv, &num_th, &arg_offset, &ION_EFF_FACTOR, &TVIR_MIN, &MFP, &ALPHA, &REDSHIFT, &PREV_REDSHIFT)) {
-    fprintf(stderr, "USAGE: find_HII_bubbles <redshift> [<previous redshift>] \n \
-[<ionization efficiency factor zeta>] [<Tvir_min> <ionizing mfp in ionized IGM> <Alpha, power law for ionization efficiency>]\n \
-Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\nAborting...\n");
-    return -1;
+  if(SHARP_CUTOFF){
+    if( !parse_arguments(argc, argv, &num_th, &arg_offset, &F_STAR10, &ALPHA_STAR, &F_ESC10,
+		       &ALPHA_ESC, &M_TURN, &T_AST, &X_LUMINOSITY, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
+        fprintf(stderr, "find_HII_bubbles <redshift> [<previous redshift>] \n \
+            Aborting...\n                               \
+        Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\nAborting...\n");
+	    return -1;
+	}
   }
+  else {
+    HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
+    if( !parse_arguments(argc, argv, &num_th, &arg_offset, &F_STAR10, &ALPHA_STAR, &F_ESC10,
+		       &ALPHA_ESC, &M_TURN, &T_AST, &X_LUMINOSITY, &MFP, &REDSHIFT, &PREV_REDSHIFT)){
+        fprintf(stderr, "find_HII_bubbles <redshift> [<previous redshift>] \n \
+        additional optional arguments: <f_star10> <alpha,star> <f_esc10> <alpha,esc> <M_TURNOVER>] [<t_star>]\n \
+        Check that your inclusion (or not) of [<previous redshift>] is consistent with the INHOMO_RECO flag in ../Parameter_files/ANAL_PARAMS.H\n \
+	 Also check that your inclusion (or not) of [<t_star>] is consistent with the USE_TS_IN_21CM flag in ../Parameter_files/HEAT_PARAMS.H\nAborting...\n");
+	    return -1;
+    }
+  }
+
 
   ZSTEP = PREV_REDSHIFT - REDSHIFT;
   fabs_dtdz = fabs(dtdz(REDSHIFT));
-  t_ast = t_STAR * t_hubble(REDSHIFT);
+  t_ast = T_AST * t_hubble(REDSHIFT);
   growth_factor = dicke(REDSHIFT);
-  growth_factor_dz = dicke(REDSHIFT-dz);
   pixel_volume = pow(BOX_LEN/(float)HII_DIM, 3);
   pixel_mass = RtoM(L_FACTOR*BOX_LEN/(float)HII_DIM);
-  f_coll_crit = 1/ION_EFF_FACTOR;
-  cell_length_factor = L_FACTOR;
   // this parameter choice is sensitive to noise on the cell size, at least for the typical
   // cell sizes in RT simulations.  it probably doesn't matter for larger cell sizes.
+  cell_length_factor = L_FACTOR;
   if (USE_HALO_FIELD && (FIND_BUBBLE_ALGORITHM==2)
       && ((BOX_LEN/(float)HII_DIM) < 1)){ // fairly arbitrary length based on 2 runs i did
     cell_length_factor = 1;
   }
   init_ps();
+  Fcoll = (float *) malloc(sizeof(float)*HII_TOT_FFT_NUM_PIXELS);
   if (INHOMO_RECO) {  init_MHR();}
-  init_21cmMC_arrays();
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+  	init_21cmMC_arrays();
+    Mlim_Fstar = Mass_limit_bisection(M_TURN/50., 1e16, ALPHA_STAR, F_STAR10);
+    Mlim_Fesc = Mass_limit_bisection(M_TURN/50., 1e16, ALPHA_ESC, F_ESC10);
+    ION_EFF_FACTOR = N_GAMMA_UV * F_STAR10 * F_ESC10;
+  }
+  else
+    ION_EFF_FACTOR = N_GAMMA_UV * STELLAR_BARYON_FRAC * ESC_FRAC; // Constant ionizing efficiency parameter.
 
-   
-  // SET THE MINIMUM HALO MASS HOSTING SOURCES
-  if ( (TVIR_MIN > 0) && (ION_M_MIN > 0) && (argc < 5)){
-    fprintf(stderr, "You have to \"turn-off\" either the ION_M_MIN or \
-                     the ION_Tvir_MIN option in ANAL_PARAMS.H\nAborting...\n");
-    free_ps(); return -1;
+  // Set the minimum halo mass hosting ionizing source mass.
+  // For constant ionizing efficiency parameter M_MIN is set to be M_TURN which is a sharp cut-off.
+  // For the new parametrization the number of halos hosting active galaxies (i.e. the duty cycle) is assumed to
+  // exponentially decrease below M_TURNOVER Msun, : fduty \propto e^(- M_TURNOVER / M)
+  // In this case, we define M_MIN = M_TURN/50.
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+    M_MIN = M_TURN;
   }
-  if (TVIR_MIN > 0){ // use the virial temperature for Mmin
-    if (TVIR_MIN < 9.99999e3){ // neutral IGM
-      M_MIN = TtoM(REDSHIFT, TVIR_MIN, 1.22);
-    }
-    else{ // ionized IGM
-      M_MIN = TtoM(REDSHIFT, TVIR_MIN, 0.6);
-    }
-  }
-  else if (TVIR_MIN < 0){ // use the mass
-    M_MIN = ION_M_MIN;
+  else {
+    M_MIN = M_TURNOVER;
   }
   // check for WDM
   if (P_CUTOFF && ( M_MIN < M_J_WDM())){
@@ -224,7 +258,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
     M_MIN = M_J_WDM();
     fprintf(stderr, "Setting a new effective Jeans mass from WDM pressure supression of %e Msun\n", M_MIN);
   }
-  initialiseSplinedSigmaM(M_MIN,1e16); // set up interpolation table for computing sigma_M
+  initialiseSplinedSigmaM(M_MIN/50.0,5e16); // set up interpolation table for computing sigma_M
 
   
   // INITIALIZE THREADS
@@ -237,52 +271,57 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
   gsl_rng_env_setup();
   T = gsl_rng_default;
   r = gsl_rng_alloc(T);
-    
+  
 
-    // OPEN LOG FILE
-    system("mkdir ../Log_files");
-    sprintf(filename, "../Log_files/HII_bubble_log_file_%d", getpid());
-    LOG = fopen(filename, "w");
-    if (!LOG){
-      fprintf(stderr, "find_HII_bubbles.c: Error opening log file\nAborting...\n");
-      fftwf_cleanup_threads();
-      free_ps(); return -1;
-    }
+  // OPEN LOG FILE
+  system("mkdir ../Log_files");
+  sprintf(filename, "../Log_files/HII_bubble_log_file_%d", getpid());
+  LOG = fopen(filename, "w");
+  if (!LOG){
+    fprintf(stderr, "find_HII_bubbles.c: Error opening log file\n");
+  }
 
-    // allocate memory for the neutral fraction box
-    xH = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
-    //    xH_m = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
-    if (!xH){
-      strcpy(error_message, "find_HII_bubbles.c: Error allocating memory for xH box\nAborting...\n");
-      goto CLEANUP;
-    }
-    for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){    xH[ct] = 1;  }
+  // allocate memory for the neutral fraction box
+  xH = (float *) fftwf_malloc(sizeof(float)*HII_TOT_NUM_PIXELS);
+  if (!xH){
+    strcpy(error_message, "find_HII_bubbles.c: Error allocating memory for xH box\nAborting...\n");
+    goto CLEANUP;
+  }
+  for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){    xH[ct] = 1;  }
 
 
-    // compute the mean collpased fraction at this redshift
-    if(fabs(ALPHA) > FRACT_FLOAT_ERR ){
-      mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
-    }
-    else {
-      mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
-    }
-
+  // compute the mean collpased fraction at this redshift
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
+	// Here 'mean_f_coll_st' is not the mean collpased fraction, but leave this name as is to simplify the variable name.
+	// Nion_ST * ION_EFF_FACTOR = the mean number of IGM ionizing photon per baryon
+	// see eq. (17) in Park et al. 2018
+    mean_f_coll_st = Nion_ST(REDSHIFT, M_TURN, ALPHA_STAR, ALPHA_ESC, F_STAR10, F_ESC10, Mlim_Fstar, Mlim_Fesc);
+  }
+  else { 
+    mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
+  }
     /**********  CHECK IF WE ARE IN THE DARK AGES ******************************/
     // lets check if we are going to bother with computing the inhmogeneous field at all...
-    if ((mean_f_coll_st/f_coll_crit < HII_ROUND_ERR)){ // way too small to ionize anything...
+    if ((mean_f_coll_st*ION_EFF_FACTOR < HII_ROUND_ERR)){ // way too small to ionize anything...//New in v1.4
       fprintf(stderr, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
-                       I will just declare everything to be neutral\n", mean_f_coll_st, f_coll_crit);
+                       I will just declare everything to be neutral\n", mean_f_coll_st, 1./ION_EFF_FACTOR);
       fprintf(LOG, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
-                    I will just declare everything to be neutral\n", mean_f_coll_st, f_coll_crit);
+                    I will just declare everything to be neutral\n", mean_f_coll_st, 1./ION_EFF_FACTOR);
 
       if (USE_TS_IN_21CM){ // use the x_e box to set residuals
-	sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc",
-		REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+		if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
+    	  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
+		  printf("filename: %s\n",filename);
+		}
+		else {
+		  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
+		}
 	if (!(F = fopen(filename, "rb"))){
 	  fprintf(stderr, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fprintf(LOG, "find_HII_bubbles: Unable to open x_e file at %s\nAborting...\n", filename);
 	  fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
-	  free_ps(); destroy_21cmMC_arrays(); return -1;
+      free(Fcoll);
+	  free_ps();  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();} return -1;
 	}
 	for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){
 	  if (fread(&xH[ct], sizeof(float), 1, F)!=1){
@@ -294,6 +333,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	  global_xH += xH[ct];
 	}
 	fclose(F);
+	F = NULL;
 	global_xH /= (double)HII_TOT_NUM_PIXELS;
       }
       else{
@@ -310,16 +350,32 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       global_xH_m = global_xH;
       switch(FIND_BUBBLE_ALGORITHM){
       case 2:
-	if (USE_HALO_FIELD)
-	  sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-	else
-	  sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-	break;
+	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){
+  	    if (USE_HALO_FIELD)
+		  sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+	    else
+		  sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+		}
+	  else{
+	    if (USE_HALO_FIELD)
+	      sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_eff%.1f_effPLindex0_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+          else
+            sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex0_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+        }
+	    break;
       default:
-	if (USE_HALO_FIELD)
-	  sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-	else
-	  sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){
+	    if (USE_HALO_FIELD)
+		  sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+		else
+		  sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+	  }
+	  else{
+        if (USE_HALO_FIELD)
+          sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_eff%.1f_effPLindex0_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+        else
+          sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex0_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  }
       }
       F = fopen(filename, "wb");
       fprintf(LOG, "Neutral fraction is %f\nNow writting xH box at %s\n", global_xH, filename);
@@ -328,8 +384,9 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	fprintf(stderr, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
 	fprintf(LOG, "find_HII_bubbles.c: Write error occured while writting xH box.\n");
       }
-      free_ps(); fclose(F); fclose(LOG); fftwf_free(xH);  fftwf_cleanup_threads();
-       destroy_21cmMC_arrays(); return (int) (global_xH * 100);
+      free_ps(); fclose(F); F = NULL; fclose(LOG); fftwf_free(xH); fftwf_cleanup_threads();
+	  free(Fcoll);
+      if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();} return (int) (global_xH * 100);
     }
 
     /*************   END CHECK TO SEE IF WE ARE STILL IN THE DARK AGES *************/
@@ -348,7 +405,12 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       }
 
       // and read-in
-      sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_zetaX%.1e_alphaX%.1f_TvirminX%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, ZETA_X, X_RAY_SPEC_INDEX, X_RAY_Tvir_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN);
+	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
+	    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
+	  }
+	  else {
+		sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_Mmin%.1e_zetaIon%.2f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, M_MIN, HII_EFF_FACTOR, Pop, HII_DIM, BOX_LEN); 
+	  }
       if (!(F = fopen(filename, "rb"))){
 	strcpy(error_message, "find_HII_bubbles.c: Unable to open x_e file at ");
 	strcat(error_message, filename);
@@ -366,6 +428,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	}
       }
       fclose(F);
+	  F = NULL;
     }
 
 
@@ -399,6 +462,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	fscanf(F, "%e %f %f %f", &mass, &xf, &yf, &zf);
       }
       fclose(F);
+	  F = NULL;
     } // end of the USE_HALO_FIELD option
 
     
@@ -431,6 +495,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       }
     }
     fclose(F);
+    F = NULL;
 
     // ALLOCATE AND INITIALIZE ADDITIONAL BOXES NEEDED TO KEEP TRACK OF RECOMBINATIONS (Sobacchi & Mesinger 2014; NEW IN v1.3)
     if (INHOMO_RECO){ //  flag in ANAL_PARAMS.H to determine whether to compute recombinations or not
@@ -454,7 +519,6 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++)
 	  z_re[ct] = -1.0;
       }
-
       sprintf(filename, "../Boxes/Nrec_z%06.2f_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", PREV_REDSHIFT, HII_FILTER, MFP, HII_DIM, BOX_LEN);
       if (F=fopen(filename, "rb")){ // we had prvious boxes
 	//check if some read error occurs
@@ -534,7 +598,8 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
       fftwf_free(xe_unfiltered);
       fftwf_free(N_rec_unfiltered);
       fftwf_free(N_rec_filtered);
-      destroy_21cmMC_arrays();
+	  free(Fcoll);
+      if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();}
       
       return -1;
     }
@@ -646,15 +711,14 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	temparg =  2*(pow(sigma_z0(M_MIN), 2) - pow(sigma_z0(massofscaleR), 2) );
 	erfc_denom = sqrt(temparg);
 	    
-	if( fabs(ALPHA) > FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
-	  initialiseGL_Fcoll(NGLlow,NGLhigh,M_MIN,massofscaleR);
-	  initialiseFcoll_spline(REDSHIFT,M_MIN,massofscaleR,massofscaleR,M_MIN,ALPHA);
+	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
+	  initialiseGL_Nion(NGL_SFR, M_MIN/50.0, massofscaleR);
+	  initialise_Nion_spline(REDSHIFT, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
-      
+
 	for (x=0; x<HII_DIM; x++){
 	  for (y=0; y<HII_DIM; y++){
 	    for (z=0; z<HII_DIM; z++){
-
 	      if (USE_HALO_FIELD){
 		Splined_Fcoll = *((float *)M_coll_filtered + HII_R_FFT_INDEX(x,y,z)) / (massofscaleR*density_over_mean);
 		Splined_Fcoll *= (4/3.0)*PI*pow(R,3) / pixel_volume;
@@ -663,8 +727,11 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	      else{
 		density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
 		if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
-		  if ( fabs(ALPHA) > FRACT_FLOAT_ERR ) { // non-constaint ionizing luminosity to mass ratio
-		    FcollSpline(density_over_mean - 1, &(Splined_Fcoll));
+		  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
+		  // Here again, 'Splined_Fcoll' and 'f_coll' are not the collpased fraction, but leave this name as is to simplify the variable name.
+		  // f_coll * ION_EFF_FACTOR = the number of IGM ionizing photon per baryon at a given overdensity.
+		  // see eq. (17) in Park et al. 2018
+			Nion_Spline_density(density_over_mean - 1,&(Splined_Fcoll));
 		  }
 		  else{ // we can assume the classic constant ionizing luminosity to halo mass ratio
 		    erfc_num = (Deltac - (density_over_mean-1)) /  growth_factor;
@@ -733,7 +800,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	    }
 
 	    // check if fully ionized!
-	    if ( (f_coll > (xHI_from_xrays/ION_EFF_FACTOR)*(1.0+rec)) ){ //IONIZED!!
+	    if ( (f_coll*ION_EFF_FACTOR > xHI_from_xrays*(1.0+rec)) ){ //IONIZED!! //New in v1.4
 	    
 	      // if this is the first crossing of the ionization barrier for this cell (largest R), record the gamma
 	      // this assumes photon-starved growth of HII regions...  breaks down post EoR
@@ -870,6 +937,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	  }
 	}
 	fclose(F);
+    F = NULL;
       }
     
       // Write z_re in the box
@@ -884,6 +952,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	  goto CLEANUP;
 	}
 	fclose(F);
+	F = NULL;
       }
 
       // Gamma12 box
@@ -898,6 +967,7 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
 	  goto CLEANUP;
 	}
 	fclose(F);
+	F = NULL;
       }
     }
 
@@ -905,16 +975,32 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
     // print out the xH box
     switch(FIND_BUBBLE_ALGORITHM){
     case 2:
-      if (USE_HALO_FIELD)
-	sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-      else
-	sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
+        if (USE_HALO_FIELD)
+		  sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+        else
+		  sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+	  }
+	  else {
+        if (USE_HALO_FIELD)
+        sprintf(filename, "../Boxes/xH_z%06.2f_nf%f_eff%.1f_effPLindex0_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+        else
+        sprintf(filename, "../Boxes/xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex0_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+      }
       break;
     default:
-      if (USE_HALO_FIELD)
-	      sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
-            else
-	      sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex%.1f_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, ALPHA, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
+        if (USE_HALO_FIELD)
+		  sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+        else
+		  sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_Fstar%.4f_starPL%.4f_Fesc%.4f_escPL%.4f_Mturn%.2e_HIIfilter%i_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, HII_FILTER, MFP, HII_DIM, BOX_LEN);
+	  }
+	  else {
+        if (USE_HALO_FIELD)
+        sprintf(filename, "../Boxes/sphere_xH_z%06.2f_nf%f_eff%.1f_effPLindex0_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+        else
+        sprintf(filename, "../Boxes/sphere_xH_nohalos_z%06.2f_nf%f_eff%.1f_effPLindex0_HIIfilter%i_Mmin%.1e_RHIImax%.0f_%i_%.0fMpc", REDSHIFT, global_xH, ION_EFF_FACTOR, HII_FILTER, M_MIN, MFP, HII_DIM, BOX_LEN);
+	  }
     }
     if (!(F = fopen(filename, "wb"))){
         fprintf(stderr, "find_HII_bubbles: ERROR: unable to open file %s for writting!\n", filename);
@@ -931,25 +1017,30 @@ Check that your inclusion (or not) of [<previous redshift>] is consistent with t
             global_xH = -1;
         }
         fclose(F);
+	    F = NULL;
     }
+  
 
 
+	  fprintf(stderr, error_message);
+      fprintf(LOG, error_message);
       fftwf_free(xH);
+      fftwf_free(z_re);
+      fftwf_free(Gamma12);
       fclose(LOG);
       fftwf_free(deltax_unfiltered);
       fftwf_free(deltax_filtered);
       fftwf_free(M_coll_unfiltered);
       fftwf_free(M_coll_filtered);
       fftwf_cleanup_threads();
+      if (F){ fclose(F);}
       free_ps();
-      if (INHOMO_RECO) { free_MHR();}
-      fftwf_free(N_rec_unfiltered);
-      fftwf_free(N_rec_filtered);
-      fftwf_free(z_re);
-      fftwf_free(Gamma12);
+      free_MHR();
       fftwf_free(xe_filtered);
       fftwf_free(xe_unfiltered);
-      destroy_21cmMC_arrays();
+      fftwf_free(N_rec_unfiltered);
+      fftwf_free(N_rec_filtered);
+      if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();}
       
       return 0;
 }

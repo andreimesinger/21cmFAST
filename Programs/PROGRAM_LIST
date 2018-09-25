@@ -5,9 +5,11 @@ Driver program:
 ----------------------
 drive_logZscroll_Ts   /*  scrolls logarithmically through redshifts creating halo, velocity, density, and ionization fields, 21cm fields, INCLUDES spin temperature */
 
-drive_zscroll_noTs   /*  scrolls through redshifts creating halo, velocity, density, and ionization fields, 21cm fields .  You must change the USE_TS_IN_21CM to zero (from the default unity) to use this driver. */
+drive_zscroll_noTs   /*  scrolls through redshifts creating halo, velocity, density, and ionization fields, 21cm fields */
 
 drive_xHIscroll_noTs   /*  scrolls through ionizing efficiencies, at a fixed redshift, creating halo, velocity, density, and ionization fields, 21cm fields */
+
+drive_zscroll_reion_param  /* New in v1.1. Threaded driver scrolling through astrophysical parameter space */
 
 
 Programs to create various fields:

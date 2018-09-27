@@ -1,8 +1,10 @@
 # C compiler and flags
 CPPFLAGS = -I/usr/local/include
-LDFLAGS = -lgsl -lgslcblas -lfftw3f_omp -lfftw3f -lm
+#LDFLAGS = -lgsl -lgslcblas -lfftw3f_omp -lfftw3f -lm
 #CC      = gcc-7.1.0 -fopenmp
-CC      = gcc -fopenmp -mtune=core2 -march=core2 -m64 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_THREAD_SAFE #for my mac pro 64bit
+#CC      = gcc -fopenmp -mtune=core2 -march=core2 -m64 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_THREAD_SAFE #for my mac pro 64bit
+LDFLAGS = -L/usr/local/include -lgsl -lgslcblas -lfftw3f_threads -lfftw3f -lm
+CC      = gcc-8.1 -fopenmp -Ofast
 
 
 # Directory hosting the non-project specific code

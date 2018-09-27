@@ -712,7 +712,7 @@ int main(int argc, char ** argv){
 	erfc_denom = sqrt(temparg);
 	    
 	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
-	  initialiseGL_Nion(NGL_SFR, M_MIN/50.0, massofscaleR);
+	  initialiseGL_Nion(NGL_SFR, M_TURN, massofscaleR);
 	  initialise_Nion_spline(REDSHIFT, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
 

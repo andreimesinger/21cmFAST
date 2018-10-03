@@ -7,7 +7,7 @@
    <escape fraction for 10^10 Msun halos> <power law index for escape fraction halo mass scaling>
    <turn-over scale for the duty cycle of galaxies, in units of halo mass>] [<Soft band X-ray luminosity>]
 
-   final optional parameter is MFP (depricated in v1.4)
+   final optional parameter is MFP (depricated in v2)
 
   Program FIND_HII_BUBBLES generates the ionization field in Boxes/
 
@@ -33,7 +33,7 @@ float *Fcoll;
 
 void init_21cmMC_arrays() { // defined in Cosmo_c_files/ps.c
     
-    Overdense_spline_SFR = calloc(NSFR_high,sizeof(float)); // New in v1.4
+    Overdense_spline_SFR = calloc(NSFR_high,sizeof(float)); // New in v2
     Nion_spline = calloc(NSFR_high,sizeof(float));
     second_derivs_Nion = calloc(NSFR_high,sizeof(float));
     xi_SFR = calloc((NGL_SFR+1),sizeof(float));
@@ -48,7 +48,7 @@ void destroy_21cmMC_arrays() {
     free(second_derivs_sigma);
     free(second_derivs_dsigma);
 
-    free(Overdense_spline_SFR); // New in v1.4
+    free(Overdense_spline_SFR); // New in v2
     free(Nion_spline);
     free(second_derivs_Nion);
     free(xi_SFR);
@@ -177,7 +177,7 @@ int main(int argc, char ** argv){
   i=0;
   double t_ast, dfcolldt, Gamma_R_prefactor, rec;
   float nua, dnua, temparg, Gamma_R, z_eff;
-  float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, Mlim_Fstar, Mlim_Fesc; //New in v1.4
+  float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, Mlim_Fstar, Mlim_Fesc; //New in v2
   double X_LUMINOSITY;
   float global_xH_m, fabs_dtdz, ZSTEP;
   const float dz = 0.01;
@@ -291,7 +291,7 @@ int main(int argc, char ** argv){
 
 
   // compute the mean collpased fraction at this redshift
-  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
+  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v2
 	// Here 'mean_f_coll_st' is not the mean collpased fraction, but leave this name as is to simplify the variable name.
 	// Nion_ST * ION_EFF_FACTOR = the mean number of IGM ionizing photon per baryon
 	// see eq. (17) in Park et al. 2018
@@ -302,14 +302,14 @@ int main(int argc, char ** argv){
   }
     /**********  CHECK IF WE ARE IN THE DARK AGES ******************************/
     // lets check if we are going to bother with computing the inhmogeneous field at all...
-    if ((mean_f_coll_st*ION_EFF_FACTOR < HII_ROUND_ERR)){ // way too small to ionize anything...//New in v1.4
+    if ((mean_f_coll_st*ION_EFF_FACTOR < HII_ROUND_ERR)){ // way too small to ionize anything...//New in v2
       fprintf(stderr, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
                        I will just declare everything to be neutral\n", mean_f_coll_st, 1./ION_EFF_FACTOR);
       fprintf(LOG, "The ST mean collapse fraction is %e, which is much smaller than the effective critical collapse fraction of %e\n \
                     I will just declare everything to be neutral\n", mean_f_coll_st, 1./ION_EFF_FACTOR);
 
       if (USE_TS_IN_21CM){ // use the x_e box to set residuals
-		if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
+		if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v2
     	  sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
 		  printf("filename: %s\n",filename);
 		}
@@ -405,7 +405,7 @@ int main(int argc, char ** argv){
       }
 
       // and read-in
-	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v1.4
+	  if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY){ // New in v2
 	    sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	  }
 	  else {
@@ -711,7 +711,7 @@ int main(int argc, char ** argv){
 	temparg =  2*(pow(sigma_z0(M_MIN), 2) - pow(sigma_z0(massofscaleR), 2) );
 	erfc_denom = sqrt(temparg);
 	    
-	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
+	if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v2
 	  initialiseGL_Nion(NGL_SFR, M_TURN, massofscaleR);
 	  initialise_Nion_spline(REDSHIFT, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
@@ -727,7 +727,7 @@ int main(int argc, char ** argv){
 	      else{
 		density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
 		if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
-		  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
+		  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v2
 		  // Here again, 'Splined_Fcoll' and 'f_coll' are not the collpased fraction, but leave this name as is to simplify the variable name.
 		  // f_coll * ION_EFF_FACTOR = the number of IGM ionizing photon per baryon at a given overdensity.
 		  // see eq. (17) in Park et al. 2018
@@ -800,7 +800,7 @@ int main(int argc, char ** argv){
 	    }
 
 	    // check if fully ionized!
-	    if ( (f_coll*ION_EFF_FACTOR > xHI_from_xrays*(1.0+rec)) ){ //IONIZED!! //New in v1.4
+	    if ( (f_coll*ION_EFF_FACTOR > xHI_from_xrays*(1.0+rec)) ){ //IONIZED!! //New in v2
 	    
 	      // if this is the first crossing of the ionization barrier for this cell (largest R), record the gamma
 	      // this assumes photon-starved growth of HII regions...  breaks down post EoR

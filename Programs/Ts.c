@@ -22,7 +22,7 @@
 */
 
 
-// New in v1.4
+// New in v2
 void init_21cmMC_arrays() { 
 
 	int i,j;
@@ -115,16 +115,16 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
  time_t start_time, curr_time;
  double J_alpha_threads[NUMCORES], xalpha_threads[NUMCORES], Xheat_threads[NUMCORES],
    Xion_threads[NUMCORES], lower_int_limit;
- float Splined_Nion_ST_zp, Splined_SFRD_ST_zpp,ION_EFF_FACTOR,fcoll; // New in v1.4
- float zp_table; //New in v1.4
- int counter,arr_num; // New in v1.4
+ float Splined_Nion_ST_zp, Splined_SFRD_ST_zpp,ION_EFF_FACTOR,fcoll; // New in v2
+ float zp_table; //New in v2
+ int counter,arr_num; // New in v2
  double Luminosity_conversion_factor;
  float prev_zp_temp, zp_temp;
  int RESTART = 0;
 
 
  /**********  BEGIN INITIALIZATION   **************************************/
- //New in v1.4
+ //New in v2
  if (SHARP_CUTOFF) {
    if (argc == 3){
      RESTART = 1;
@@ -230,7 +230,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
    fprintf(LOG, "Opened density file %s for reading\n", filename);
 
    // open output
-   // New in v1.4
+   // New in v2
    if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
    sprintf(filename, "../Boxes/Ts_z%06.2f_L_X%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_MturnX%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", REDSHIFT, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
    }
@@ -275,7 +275,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
 
  // open global evolution output file
- // New in v1.4
+ // New in v2
  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
  sprintf(filename, "../Output_files/Ts_outs/global_evolution_Nsteps%i_zprimestepfactor%.3f_L_X%.1e_alphaX%.1f_f_star10%06.4f_alpha_star%06.4f_f_esc10%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", NUM_FILTER_STEPS_FOR_Ts, ZPRIME_STEP_FACTOR, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
    if (argc == 3 || argc == 9) // restarting
@@ -469,7 +469,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   }
   else{ // we need to load the evolution files from the intermediate output
     // first Tk
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
+	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v2
     sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	}
 	else {
@@ -498,7 +498,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       fclose(F);
     }
     // then xe_neutral
-	// New in v1.4
+	// New in v2
     if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
     sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
 	}
@@ -575,7 +575,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   }
   zp_ct=0;
   COMPUTE_Ts = 0;
-  // New in v1.4
+  // New in v2
   if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
     init_21cmMC_arrays();
 	
@@ -649,7 +649,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
   counter = 0;
   while (zp > REDSHIFT){
 
-	// New in v1.4: initialise interpolation of SFRD over zpp and overdensity.
+	// New in v2: initialise interpolation of SFRD over zpp and overdensity.
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
 	  arr_num = NUM_FILTER_STEPS_FOR_Ts*counter; // New
 	  for (i=0; i<NUM_FILTER_STEPS_FOR_Ts; i++) {
@@ -663,7 +663,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       COMPUTE_Ts = 1;
 
     // check if we are in the really high z regime before the first stars..
-	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v1.4
+	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v2
 	  Nion_ST_z(zp,&(Splined_Nion_ST_zp));
       if ( Splined_Nion_ST_zp < 1e-15 )
         NO_LIGHT = 1;
@@ -677,7 +677,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
         NO_LIGHT = 0;
 	}
 
-	//New in v1.4
+	//New in v2
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
 	  filling_factor_of_HI_zp = 1 - ION_EFF_FACTOR * Splined_Nion_ST_zp / (1.0 - x_e_ave); // fcoll including f_esc
 	}
@@ -709,7 +709,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       zpp_edge[R_ct] = prev_zpp - (R_values[R_ct] - prev_R)*CMperMPC / drdz(prev_zpp); // cell size
       zpp = (zpp_edge[R_ct]+prev_zpp)*0.5; // average redshift value of shell: z'' + 0.5 * dz''
 	  if (zpp - redshift_interp_table[arr_num+R_ct] > 1e-3) printf("zpp = %.4f, zpp_array = %.4f\n", zpp, redshift_interp_table[arr_num+R_ct]);
-      if(SHARP_CUTOFF) sigma_Tmin[R_ct] =  sigma_z0(M_MIN); // In v1.4 sigma_Tmin doesn't nedd to be an array, just a constant.
+      if(SHARP_CUTOFF) sigma_Tmin[R_ct] =  sigma_z0(M_MIN); // In v2 sigma_Tmin doesn't nedd to be an array, just a constant.
 
       // let's now normalize the total collapse fraction so that the mean is the
       // Sheth-Torman collapse fraction
@@ -717,7 +717,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       sample_ct=0;
       for (box_ct=0; box_ct<HII_TOT_NUM_PIXELS; box_ct+=(HII_TOT_NUM_PIXELS/1e5+1)){
 	sample_ct++;
-	// New in v1.4
+	// New in v2
 	if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
 	  growth_zpp = dicke(zpp);
       //---------- interpolation for fcoll starts ----------
@@ -755,7 +755,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
       fcoll_R /= (double) sample_ct;
 
-	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {// New in v1.4
+	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {// New in v2
 	    SFRD_ST_z(zpp,&(Splined_SFRD_ST_zpp));
 	    ST_over_PS[R_ct] = Splined_SFRD_ST_zpp / fcoll_R; 
 	  }
@@ -816,7 +816,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
     growth_factor_zp = dicke(zp);
     dgrowth_factor_dzp = ddicke_dz(zp);
     dt_dzp = dtdz(zp);
-	// New in v1.4
+	// New in v2
     // Conversion of the input bolometric luminosity to a ZETA_X, as used to be used in Ts.c
     // Conversion here means the code otherwise remains the same as the original Ts.c
     if(fabs(X_RAY_SPEC_INDEX - 1.0) < 0.000001) {
@@ -970,7 +970,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       fflush(NULL);
 
       // first Tk
-	    // New v1.4
+	    // New v2
 	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
       sprintf(filename, "../Boxes/Ts_evolution/Tk_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	  }
@@ -989,7 +989,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 	fclose(F);
       }
       // then xe_neutral
-	    // New in v1.4
+	    // New in v2
 	  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
       sprintf(filename, "../Boxes/Ts_evolution/xeneutral_zprime%06.2f_L_X%.1e_alphaX%.1f_f_star10_%06.4f_alpha_star%06.4f_f_esc10_%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN);
 	  }
@@ -1011,7 +1011,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
 
     // and the spin temperature if desired
   if ( COMPUTE_Ts ){
-    // New in v1.4
+    // New in v2
     if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY != 0) {
     sprintf(filename, "../Boxes/Ts_z%06.2f_L_X%.1e_alphaX%.1f_f_star%06.4f_alpha_star%06.4f_f_esc%06.4f_alpha_esc%06.4f_Mturn%.1e_t_star%06.4f_Pop%i_%i_%.0fMpc", zp, X_LUMINOSITY, X_RAY_SPEC_INDEX, F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, T_AST, Pop, HII_DIM, BOX_LEN); 
     }

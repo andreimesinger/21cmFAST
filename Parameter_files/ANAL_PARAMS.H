@@ -6,23 +6,27 @@
 
 /***********************************************
   GALAXY PARAMETERS
-  NEW in v1.4:
+  NEW in v2:
 
   The ionizing efficiency zeta is allowed to scale with the halo mass:
-  \zeta = N_{\gammaUV} x f_{esc} x f_{\ast}
+  \zeta = N_{\gammaUV} x f_{esc}(M_{h}) x f_{\ast}(M_{h}),
 
   where:
-  f_{\ast} = STELLAR_BARYON_FRAC x (M_{halo}/10^10 M_{sol})^STELLAR_BARYON_PL
-  f_{esc} = ESC_FRAC x (M_{halo}/10^10 M_{sol})^ESC_PL
+  M_{h} is a halo mass,
+  f_{\ast} = f_{\ast,10} x (M_{h}/10^10 Msun)^\alpha_{\ast}
+           = STELLAR_BARYON_FRAC x (M_{h}/10^10 Msun)^STELLAR_BARYON_PL,
+  and
+  f_{esc} = f_{esc,10} x (M_{h}/10^10 Msun)^\alpha_{esc}
+          = ESC_FRAC x (M_{h}/10^10 Msun)^ESC_PL.
 
-  The number of halos hosting active galaxies (i.e. the duty cycle) is assumed to
+  The number of halos hosting active star-forming galaxies (i.e. the duty cycle) is assumed to
   exponentially decrease below M_TURNOVER Msun, : fduty \propto e^(- M_TURNOVER / M)
 
-  See eq. (?) in Park et al....
+  See eq.(16) and equations in Section 2 of Park et al. (2018): https://arxiv.org/pdf/1809.08995.pdf
 
-  The fiducial 2 parameter galaxy model with a constant specific ionizing luminosity down
-  to a threshold halo mass, M_TURNOVER, is recovered by setting *_PL parameters to zero.
-  This results in the fastest runs.
+  This code still support the constant ionizing efficiency with sharp cut-off for minimum halo mass.
+  See 'SHARP_CUTOFF' in this file.
+
 ***********************************************/
 #define N_GAMMA_UV (float) (5000) // number of ionizing photons per stellar baryon
 #define STELLAR_BARYON_FRAC (double) (0.05) // defined for 10^10 Msun halos

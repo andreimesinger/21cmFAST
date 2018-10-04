@@ -140,7 +140,7 @@ for path in args.input:
     # check if it is a 21cm brightness temperature box
     if basename(filename)[0:3]=='del':
         if args.min > 1e4:
-            minrange = -210
+            minrange = -150
         if args.max < -1e4:
             maxrange = 30
         cmap = LinearSegmentedColormap.from_list('mycmap', ['yellow','red','black','green','blue'])

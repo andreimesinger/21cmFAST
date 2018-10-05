@@ -600,7 +600,9 @@ int main(int argc, char ** argv){
       fftwf_free(N_rec_filtered);
 	  free(Fcoll);
       if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {destroy_21cmMC_arrays();}
-      
+      fftwf_destroy_plan(plan);
+      fftwf_cleanup();
+     
       return -1;
     }
 
@@ -664,8 +666,8 @@ int main(int argc, char ** argv){
       }
       plan = fftwf_plan_dft_c2r_3d(HII_DIM, HII_DIM, HII_DIM, (fftwf_complex *)deltax_filtered, (float *)deltax_filtered, FFTW_ESTIMATE);
       fftwf_execute(plan);
-      fftwf_destroy_plan(plan);
-      fftwf_cleanup();
+      //      fftwf_destroy_plan(plan);
+      //      fftwf_cleanup();
       fprintf(LOG, "end fft with R=%f, clock=%06.2f\n", R, (double)clock()/CLOCKS_PER_SEC);
       fflush(LOG);
 
@@ -715,46 +717,46 @@ int main(int argc, char ** argv){
 	  initialiseGL_Nion(NGL_SFR, M_TURN, massofscaleR);
 	  initialise_Nion_spline(REDSHIFT, massofscaleR,M_TURN,ALPHA_STAR,ALPHA_ESC,F_STAR10,F_ESC10,Mlim_Fstar,Mlim_Fesc);
 	}
+      }
 
-	for (x=0; x<HII_DIM; x++){
-	  for (y=0; y<HII_DIM; y++){
-	    for (z=0; z<HII_DIM; z++){
-	      if (USE_HALO_FIELD){
-		Splined_Fcoll = *((float *)M_coll_filtered + HII_R_FFT_INDEX(x,y,z)) / (massofscaleR*density_over_mean);
-		Splined_Fcoll *= (4/3.0)*PI*pow(R,3) / pixel_volume;
-	      }
-	    
-	      else{
-		density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
-		if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
-		  if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v2
+      for (x=0; x<HII_DIM; x++){
+	for (y=0; y<HII_DIM; y++){
+	  for (z=0; z<HII_DIM; z++){
+	    if (USE_HALO_FIELD){
+	      Splined_Fcoll = *((float *)M_coll_filtered + HII_R_FFT_INDEX(x,y,z)) / (massofscaleR*density_over_mean);
+	      Splined_Fcoll *= (4/3.0)*PI*pow(R,3) / pixel_volume;
+	    }	    
+	    else{
+	      density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
+	      if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
+		if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v2
 		  // Here again, 'Splined_Fcoll' and 'f_coll' are not the collpased fraction, but leave this name as is to simplify the variable name.
 		  // f_coll * ION_EFF_FACTOR = the number of IGM ionizing photon per baryon at a given overdensity.
 		  // see eq. (17) in Park et al. 2018
-			Nion_Spline_density(density_over_mean - 1,&(Splined_Fcoll));
-		  }
-		  else{ // we can assume the classic constant ionizing luminosity to halo mass ratio
-		    erfc_num = (Deltac - (density_over_mean-1)) /  growth_factor;
-		    Splined_Fcoll = splined_erfc(erfc_num/erfc_denom);
-		  }	      
+		  Nion_Spline_density(density_over_mean - 1,&(Splined_Fcoll));
 		}
-		else { // the entrire cell belongs to a collpased halo...  this is rare...
-		  Splined_Fcoll =  1.0;
-		}
+		else{ // we can assume the classic constant ionizing luminosity to halo mass ratio
+		  erfc_num = (Deltac - (density_over_mean-1)) /  growth_factor;
+		  Splined_Fcoll = splined_erfc(erfc_num/erfc_denom);
+		}	      
 	      }
-
-	      // save the value of the collasped fraction into the Fcoll array
-	      Fcoll[HII_R_FFT_INDEX(x,y,z)] = Splined_Fcoll;
-	      f_coll += Splined_Fcoll;	    
+	      else { // the entrire cell belongs to a collpased halo...  this is rare...
+		Splined_Fcoll =  1.0;
+	      }
 	    }
-	  }
-	} //  end loop through Fcoll box
 
-	f_coll /= (double) HII_TOT_NUM_PIXELS; // ave PS fcoll for this filter scale
-	ST_over_PS = mean_f_coll_st/f_coll; // normalization ratio used to adjust the PS conditional collapsed fraction
-	fprintf(LOG, "end f_coll normalization if, clock=%06.2f\n", (double)clock()/CLOCKS_PER_SEC);
-	fflush(LOG);
-      } // end ST fcoll normalization
+	    // save the value of the collasped fraction into the Fcoll array
+	    Fcoll[HII_R_FFT_INDEX(x,y,z)] = Splined_Fcoll;
+	    f_coll += Splined_Fcoll;	    
+	  }
+	}
+      } //  end loop through Fcoll box
+
+      f_coll /= (double) HII_TOT_NUM_PIXELS; // ave PS fcoll for this filter scale
+      ST_over_PS = mean_f_coll_st/f_coll; // normalization ratio used to adjust the PS conditional collapsed fraction
+      fprintf(LOG, "end f_coll normalization if, clock=%06.2f\n", (double)clock()/CLOCKS_PER_SEC);
+      fflush(LOG);
+
     
       //     fprintf(stderr, "Last filter %i, R_filter=%f, fcoll=%f, ST_over_PS=%f, mean normalized fcoll=%f\n", LAST_FILTER_STEP, R, f_coll, ST_over_PS, f_coll*ST_over_PS);
 
@@ -885,8 +887,8 @@ int main(int argc, char ** argv){
       fftwf_execute(plan);
       plan = fftwf_plan_dft_c2r_3d(HII_DIM, HII_DIM, HII_DIM, (fftwf_complex *)deltax_unfiltered, (float *)deltax_unfiltered, FFTW_ESTIMATE);
       fftwf_execute(plan);
-      fftwf_destroy_plan(plan);
-      fftwf_cleanup();
+      //      fftwf_destroy_plan(plan);
+      //      fftwf_cleanup();
       for (x=0; x<HII_DIM; x++){
 	for (y=0; y<HII_DIM; y++){
 	  for (z=0; z<HII_DIM; z++){

@@ -779,16 +779,16 @@ int main(int argc, char ** argv){
 
 	    density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));
 
-	    /*
-	    if (LAST_FILTER_STEP && (density_over_mean > 3)){
-	      fprintf(stderr, "%g at index: %i, %i, %i\n", density_over_mean, x,y,z);
-	      strcpy(error_message, "shs\n");
-	      goto CLEANUP;
-	    }
-	    */
-
 	    f_coll = ST_over_PS * Fcoll[HII_R_FFT_INDEX(x,y,z)];
 	  
+	    // if this is the last filter step, prepare to account for poisson fluctuations in the sub grid halo number...
+	    // this is very approximate as it doesn't sample the halo mass function but merely samples a number of halos of a characterisic mass
+	    if (LAST_FILTER_STEP){
+		ave_N_min_cell = f_coll * pixel_mass * density_over_mean / M_MIN; // ave # of M_MIN halos in cell
+		N_min_cell = (int) gsl_ran_poisson(r, ave_N_min_cell);
+	    }
+
+
 	    if (INHOMO_RECO){
 	      dfcolldt = f_coll / t_ast;
 	      Gamma_R = Gamma_R_prefactor * dfcolldt;
@@ -833,16 +833,18 @@ int main(int argc, char ** argv){
 	    
 	    // If not fully ionized, then assign partial ionizations 
 	    else if (LAST_FILTER_STEP && (xH[HII_R_INDEX(x, y, z)] > TINY)){
-
 	      if (!USE_HALO_FIELD){
-		ave_N_min_cell = f_coll * pixel_mass * density_over_mean / M_MIN; // ave # of M_MIN halos in cell	      
 		if (ave_N_min_cell < N_POISSON){ // add poissonian fluctuations to the nalo number
-		  N_min_cell = (int) gsl_ran_poisson(r, ave_N_min_cell);
 		  f_coll = N_min_cell * M_MIN / (pixel_mass*density_over_mean);
 		}
 	      }
+
+	      // assign sub grid partial ionizations
+	      if (INHOMO_RECO)
+		res_xH = xHI_from_xrays*(1.0+rec) - f_coll * ION_EFF_FACTOR;
+	      else
+		res_xH = xHI_from_xrays - f_coll * ION_EFF_FACTOR;
 	      
-	      res_xH = xHI_from_xrays - f_coll * ION_EFF_FACTOR;
 	      // and make sure fraction doesn't blow up for underdense pixels
 	      if (res_xH < 0)
 		res_xH = 0;

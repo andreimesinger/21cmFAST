@@ -48,7 +48,7 @@ Filter choice used for smoothing the linear density field to obtain the collapse
   Maximum redshift used in the Tk and x_e evolution equations.
   Temperature and x_e are assumed to be homogenous at higher redshifts.
 */
-#define Z_HEAT_MAX (float) (35)
+#define Z_HEAT_MAX (float) (30)
 
 /*
   Maximum radius of influence for computing Xray and Lya pumping in cMpc. This

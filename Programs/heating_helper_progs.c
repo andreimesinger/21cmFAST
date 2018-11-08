@@ -626,21 +626,21 @@ double tauX(double nu, double x_e, double zp, double zpp, double HI_filling_fact
        F.function = &tauX_integrand;
        p.nu_0 = nu/(1+zp);
        p.x_e = x_e;
-       // effective efficiency for the PS (not ST) mass function; quicker to compute...
-       if (HI_filling_factor_zp > FRACT_FLOAT_ERR){
-         // New in v2
-         if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
-		   Nion_ST_z(zp,&(Splined_ans));
-		   fcoll = Splined_ans;
-         }
-         else {
-	       fcoll = FgtrM(zp, M_MIN);
-	     }
-	     p.ion_eff = (1.0 - HI_filling_factor_zp) / fcoll * (1.0 - x_e_ave);
-	     PS_ION_EFF = p.ion_eff;
-       }
-       else
-	   p.ion_eff = PS_ION_EFF; // uses the previous one in post reionization regime
+
+       // New in v2
+       if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+         p.ion_eff = N_GAMMA_UV*F_STAR10*F_ESC10;
+       }    
+       else {
+         if (HI_filling_factor_zp > FRACT_FLOAT_ERR){
+           // effective efficiency for the PS (not ST) mass function; quicker to compute...
+           fcoll = FgtrM(zp, M_MIN);
+           p.ion_eff = (1.0 - HI_filling_factor_zp) / fcoll * (1.0 - x_e_ave);
+           PS_ION_EFF = p.ion_eff;
+         }    
+         else 
+           p.ion_eff = PS_ION_EFF; // uses the previous one in post reionization regime
+       }  
 
        F.params = &p;
        gsl_integration_qag (&F, zpp, zp, 0, rel_tol,

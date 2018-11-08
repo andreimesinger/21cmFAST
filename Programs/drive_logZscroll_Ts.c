@@ -221,12 +221,6 @@ int main(int argc, char ** argv){
   fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
   fflush(NULL);
 
-  sprintf(cmnd, "./redshift_interpolate_boxes 0 ../Redshift_interpolate_filelists/delta_T_200_300Mpc");
-  system(cmnd);
-  fprintf(stderr, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
-  fprintf(LOG, "Now calling: %s, %g min have ellapsed\n", cmnd, difftime(curr_time, start_time)/60.0);
-  fflush(NULL);
-  
   fclose(LOG);
   return 0;
 }

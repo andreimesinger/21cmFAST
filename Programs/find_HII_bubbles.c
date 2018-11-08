@@ -301,7 +301,6 @@ int main(int argc, char ** argv){
     mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
   }
 
-
   /**********  CHECK IF WE ARE IN THE DARK AGES ******************************/
   // lets check if we are going to bother with computing the inhmogeneous field at all...
   global_xH = 0;

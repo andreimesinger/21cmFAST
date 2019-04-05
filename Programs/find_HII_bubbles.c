@@ -91,7 +91,7 @@ int parse_arguments(int argc, char ** argv, int * num_th, int * arg_offset, floa
       *ALPHA_ESC = ESC_PL;
       *M_TURN = M_TURNOVER;
       *T_AST = t_STAR;
-	  *X_LUMINOSITY = 0;
+	  *X_LUMINOSITY = pow(10.,L_X);
 	}
     else{ return 0;} // format is not allowed
   } 

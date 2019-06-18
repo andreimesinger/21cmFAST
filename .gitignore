@@ -7,3 +7,6 @@ Programs/*
 Log_files/*
 Boxes
 Output_files
+
+# macOS files
+.DS_Store

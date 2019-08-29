@@ -64,9 +64,7 @@ void initialiseGL_Nion(int n, float M_TURN, float M_Max);
 void Nion_Spline_density(float Overdensity, float *splined_value);
 void initialise_Nion_spline(float z, float Mmax, float MassTurnover, float Alpha_star, float Alpha_esc, float Fstar10, float Fesc10, float Mlim_Fstar, float Mlim_Fesc);
 
-float Mass_limit (float logM, float PL, float FRAC);
-void bisection(float *x, float xlow, float xup, int *iter);
-float Mass_limit_bisection(float Mmin, float Mmax, float PL, float FRAC);
+float Mass_limit (float PL, float FRAC);
 
 static double z_val[zpp_interp_points],Nion_z_val[zpp_interp_points]; // For Ts.c
 static double z_X_val[zpp_interp_points],SFRD_val[zpp_interp_points]; 
@@ -1170,54 +1168,14 @@ void initialiseSplinedSigmaM(float M_Min, float M_Max)
 /* New in v2 - part 4 of 4 start */
 
 /*
- FUNCTION Mass_limit_bisection(M_min, M_max, power-law, normalization)
- Compute a threshold of halo mass above/below which f_{\ast}(M)/f_{esc}(M) exceeds unity/zero.
+ FUNCTION Mass_limit(power-law, normalization)
+ Compute a threshold of a halo mass at which the stellar mass fraction (the escape fraction)
+ exceeds unity. If the fraction is larger than unity, set the fraction is unity.
 */
-float Mass_limit (float logM, float PL, float FRAC) {
-	return FRAC*pow(pow(10.,logM)/1e10,PL);
-}
-void bisection(float *x, float xlow, float xup, int *iter){
-    *x=(xlow + xup)/2.;
-    ++(*iter);
+float Mass_limit (float PL, float FRAC) {
+	return 1e10*pow(1./FRAC,1./PL);
 }
 
-float Mass_limit_bisection(float Mmin, float Mmax, float PL, float FRAC){
-  int i, iter, max_iter=200;
-  float rel_tol=0.001;
-  float logMlow, logMupper, x, x1;
-  iter = 0;
-  logMlow = log10(Mmin);
-  logMupper = log10(Mmax);
-  
-  if (PL < 0.) {
-    if (Mass_limit(logMlow,PL,FRAC) <= 1.) {
-      return Mmin;
-    }
-  }
-  else if (PL > 0.) {
-    if (Mass_limit(logMupper,PL,FRAC) <= 1.) {
-      return Mmax;
-    }
-  }
-  else
-	return 0;
-  bisection(&x, logMlow, logMupper, &iter);
-  do {
-    if((Mass_limit(logMlow,PL,FRAC)-1.)*(Mass_limit(x,PL,FRAC)-1.) < 0.) 
-      logMupper = x;
-    else 
-      logMlow = x;
-    bisection(&x1, logMlow, logMupper, &iter);
-    if(fabs(x1-x) < rel_tol) {
-      return pow(10.,x1);		
-    }
-    x = x1;
-  }
-  while(iter < max_iter);
-  printf("\n Failed to find a mass limit to regulate stellar fraction/escape fraction is between 0 and 1.\n");
-  printf(" The solution does not converge or iterations are not sufficient\n");
-  return -1;
-}
 
 /*
  FUNCTION Nion_ST(z, Mturn)
@@ -1515,8 +1473,8 @@ void initialise_Nion_ST_spline(int Nbin, float zmin, float zmax, float MassTurn,
 	float Mmin = MassTurn/50., Mmax = 1e16;
 	float Mlim_Fstar, Mlim_Fesc;
 
-	Mlim_Fstar = Mass_limit_bisection(Mmin, Mmax, Alpha_star, Fstar10);
-	Mlim_Fesc = Mass_limit_bisection(Mmin, Mmax, Alpha_esc, Fesc10);
+	Mlim_Fstar = Mass_limit(Alpha_star, Fstar10);
+	Mlim_Fesc = Mass_limit(Alpha_esc, Fesc10);
 
 	Nion_z_spline_acc = gsl_interp_accel_alloc ();
 	Nion_z_spline = gsl_spline_alloc (gsl_interp_cspline, Nbin);
@@ -1539,7 +1497,7 @@ void initialise_SFRD_ST_spline(int Nbin, float zmin, float zmax, float MassTurn,
 	float Mmin = MassTurn/50., Mmax = 1e16;
 	float Mlim_Fstar;
 
-	Mlim_Fstar = Mass_limit_bisection(Mmin, Mmax, Alpha_star, Fstar10);
+	Mlim_Fstar = Mass_limit(Alpha_star, Fstar10);
 
 	SFRD_ST_z_spline_acc = gsl_interp_accel_alloc ();
 	SFRD_ST_z_spline = gsl_spline_alloc (gsl_interp_cspline, Nbin);
@@ -1568,7 +1526,7 @@ void initialise_SFRD_Conditional_table(int Nsteps_zp, int Nfilter, float z[], do
 
     Mmin = MassTurnover/50; 
 	Mmax = RtoM(R[Nfilter-1]);
-	Mlim_Fstar = Mass_limit_bisection(Mmin, Mmax, Alpha_star, Fstar10);
+	Mlim_Fstar = Mass_limit(Alpha_star, Fstar10);
     initialiseSplinedSigmaM(Mmin,Mmax);
     fprintf(stderr, "In initialise_Fcollz_SFR_Conditional_table: Rmin = %6.4f, Rmax = %6.4f, Mmin = %.4e, Mmax = %.4e\n",
 																R[0],R[Nfilter-1],RtoM(R[0]),RtoM(R[Nfilter-1]));
@@ -1684,8 +1642,8 @@ void initialise_Q_value_spline(int NoRec, float MassTurn, float Alpha_star, floa
     z_arr = calloc(Nmax,sizeof(double));
     Q_arr = calloc(Nmax,sizeof(double));
 
-	Mlim_Fstar = Mass_limit_bisection(MassTurn/50., 1e16, Alpha_star, Fstar10);
-	Mlim_Fesc = Mass_limit_bisection(MassTurn/50., 1e16, Alpha_esc, Fesc10);
+	Mlim_Fstar = Mass_limit(Alpha_star, Fstar10);
+	Mlim_Fesc = Mass_limit(Alpha_esc, Fesc10);
 	ION_EFF_FACTOR = N_GAMMA_UV * Fstar10 * Fesc10;
 
     a = a_start;

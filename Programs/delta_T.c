@@ -42,6 +42,11 @@ int main(int argc, char ** argv){
 
 
   /************  BEGIN INITIALIZATION ****************************/
+  if (!T_USE_VELOCITIES & SUBCELL_RSD){
+    fprintf(stderr, "'SUBCELL_RSD' uses velocities. You MUST turn on 'T_USE_VELOCITIES' to use 'SUBCELL_RSD'.\nAborting!\n");
+    return -1; 
+  }
+
   if (SHARP_CUTOFF) HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY = 1;
   max = -1e3;
   min = 1e3;
@@ -338,29 +343,53 @@ int main(int argc, char ** argv){
   fftwf_execute(plan);
   fftwf_destroy_plan(plan);
   fftwf_cleanup();
-
   if(SUBCELL_RSD) {
-        
+    
         // now add the velocity correction to the delta_T maps
    min_gradient_component = 1.0;
    
-   for (i=0; i<HII_DIM; i++){
-       for (j=0; j<HII_DIM; j++){
+   if(USE_TS_IN_21CM) {
+       for (i=0; i<HII_DIM; i++){
+           for (j=0; j<HII_DIM; j++){
+               for (k=0; k<HII_DIM; k++){
+    
+                   gradient_component = fabs(v[HII_R_FFT_INDEX(i,j,k)]/H + 1.0);
+    
+                   // Calculate the brightness temperature, using the optical depth
+                   if(gradient_component < FRACT_FLOAT_ERR) {
+                       // Gradient component goes to zero, optical depth diverges. But, since we take exp(-tau), this goes to zero and (1 - exp(-tau)) goes to unity.
+                       // Again, factors of 1000. are conversions from K to mK
+                       delta_T[HII_R_INDEX(i,j,k)] = 1000.*(Ts[HII_R_INDEX(i,j,k)] - T_rad)/(1. + REDSHIFT);
+                   }   
+                   else {
+                       delta_T[HII_R_INDEX(i,j,k)] = (1. - exp(- delta_T[HII_R_INDEX(i,j,k)]/gradient_component ))*1000.*(Ts[HII_R_INDEX(i,j,k)] - T_rad)/(1. + REDSHIFT);
+                   }   
+               }   
+           }   
+       }   
+   }   
+   else {
+       // now add the velocity correction to the delta_T maps
+       max_v_deriv = fabs(MAX_DVDR*H);
+       for (i=0; i<HII_DIM; i++){
+         for (j=0; j<HII_DIM; j++){
            for (k=0; k<HII_DIM; k++){
-               
-               gradient_component = fabs(v[HII_R_FFT_INDEX(i,j,k)]/H + 1.0);
-               
-               // Calculate the brightness temperature, using the optical depth
-               if(gradient_component < FRACT_FLOAT_ERR) {
-                   // Gradient component goes to zero, optical depth diverges. But, since we take exp(-tau), this goes to zero and (1 - exp(-tau)) goes to unity.
-                   // Again, factors of 1000. are conversions from K to mK
-                   delta_T[HII_R_INDEX(i,j,k)] = 1000.*(Ts[HII_R_INDEX(i,j,k)] - T_rad)/(1. + REDSHIFT);
+
+               dvdx = v[HII_R_FFT_INDEX(i,j,k)];
+
+               // set maximum allowed gradient for this linear approximation
+               if (fabs(dvdx) > max_v_deriv){
+                   if (dvdx < 0) dvdx = -max_v_deriv;
+                   else dvdx = max_v_deriv;
+                   nonlin_ct++;
                }
-               else {
-   			  delta_T[HII_R_INDEX(i,j,k)] = (1. - exp(- delta_T[HII_R_INDEX(i,j,k)]/gradient_component ))*1000.*(Ts[HII_R_INDEX(i,j,k)] - T_rad)/(1. + REDSHIFT);
-               }
+
+               delta_T[HII_R_INDEX(i,j,k)] /= (dvdx/H + 1.0);
+
            }
+         }
        }
+
    }
   
    // normalised units of cell length. 0 equals beginning of cell, 1 equals end of cell

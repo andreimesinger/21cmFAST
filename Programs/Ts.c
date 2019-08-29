@@ -739,7 +739,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
           // However, such densities should always be collapsed, so just set f_coll to unity. 
           // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
 		  //New
-          splint(Overdense_high_table-1,SFRD_z_high_table[R_ct]-1,second_derivs_Nion_zpp[R_ct]-1,NSFR_high,delNL0[R_ct][box_ct]*growth_zpp,&(fcoll));
+          splint(Overdense_high_table-1,SFRD_z_high_table[arr_num+R_ct]-1,second_derivs_Nion_zpp[R_ct]-1,NSFR_high,delNL0[R_ct][box_ct]*growth_zpp,&(fcoll));
         }    
         else {
 		  fcoll = 1.;
@@ -905,7 +905,7 @@ double freq_int_heat[NUM_FILTER_STEPS_FOR_Ts], freq_int_ion[NUM_FILTER_STEPS_FOR
       }
 
       /********  finally compute the redshift derivatives *************/
-      evolveInt(zp, curr_delNL0, freq_int_heat, freq_int_ion, freq_int_lya,
+      evolveInt(zp, arr_num, curr_delNL0, freq_int_heat, freq_int_ion, freq_int_lya,
 	  	COMPUTE_Ts, ans, dansdz);//, M_TURN,ALPHA_STAR,F_STAR10,T_AST);
  
       //update quantities

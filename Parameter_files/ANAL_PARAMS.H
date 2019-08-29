@@ -125,9 +125,10 @@
   then find_HII_bubbles just prints a homogeneous xHI field
   of  1's.
 
-  This is a new option in v1.1. Previous versions had a hardcoded value of 1e-15.
+  Previous versions had a value of 1e-3. In order to avoid discontinuous of redshift evolution in PS, 
+  the threshold is changed to 1e-5, which is a hardcoded value.
 */
-#define HII_ROUND_ERR (float) (1e-3)
+#define HII_ROUND_ERR (float) (1e-5)
 
 
 /*

@@ -47,7 +47,7 @@ double xion_RECFAST(float z, int flag);
 double T_RECFAST(float z, int flag);
 
 /* Main driver for evolution */
-void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[], 
+void evolveInt(float zp, int arr_num, float curr_delNL0[], double freq_int_heat[], 
 	       double freq_int_ion[], double freq_int_lya[], 
 	       int COMPUTE_Ts, double y[], double deriv[]);
 		   //float Mturn, float ALPHA_STAR, float F_STAR10, float T_AST);
@@ -293,7 +293,7 @@ double spectral_emissivity(double nu_norm, int flag)
  ************************** IGM Evolution ***************************
   This function creates the d/dz' integrands
 *********************************************************************/
-void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[], 
+void evolveInt(float zp, int arr_num, float curr_delNL0[], double freq_int_heat[], 
 	       double freq_int_ion[], double freq_int_lya[], 
 	       int COMPUTE_Ts, double y[], double deriv[]){
   double  dfdzp, dadia_dzp, dcomp_dzp, dxheat_dt, ddz, dxion_source_dt, dxion_sink_dt;
@@ -345,7 +345,7 @@ void evolveInt(float zp, float curr_delNL0[], double freq_int_heat[],
           // Usage of 0.99*Deltac arises due to the fact that close to the critical density, the collapsed fraction becomes a little unstable
           // However, such densities should always be collapsed, so just set f_coll to unity. 
           // Additionally, the fraction of points in this regime relative to the entire simulation volume is extremely small.
-          splint(Overdense_high_table-1,SFRD_z_high_table[zpp_ct]-1,second_derivs_Nion_zpp[zpp_ct]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll));
+          splint(Overdense_high_table-1,SFRD_z_high_table[arr_num+zpp_ct]-1,second_derivs_Nion_zpp[zpp_ct]-1,NSFR_high,curr_delNL0[zpp_ct]*growth_zpp,&(fcoll));
         }
         else {
           fcoll = 1.;

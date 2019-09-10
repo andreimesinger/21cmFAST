@@ -157,6 +157,13 @@
   which dominates the collapse fraction field on small scales (i.e. where the mean halo number 
   is small).  However, option (0) is faster as it bypasses the halo finder, and it becomes
   increasingly accurate as the typical bubble size increases.
+
+  NOTE: when using option (1), 
+        i) SET the real space top-hat filter for generating ionization field,
+           i.e. HII_FILTER = 0.
+        ii) BE CAREFUL the resolution is enough to resolve the minumum halo mass.
+            The minumum halo mass should be, at least, M_TURNOVER/3.
+            e.g., if M_TURNOVER = 5e8, BOX_LEN/DIM ~ 0.1
 */
 #define USE_HALO_FIELD (int) (0)
 

@@ -178,7 +178,7 @@ int main(int argc, char ** argv){
   gsl_rng * r=NULL;
   double t_ast, dfcolldt, Gamma_R_prefactor, rec;
   float nua, dnua, temparg, Gamma_R, z_eff;
-  float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, Mlim_Fstar, Mlim_Fesc; //New in v2
+  float F_STAR10, ALPHA_STAR, F_ESC10, ALPHA_ESC, M_TURN, Mlim_Fstar, Mlim_Fesc, Fstar, Fesc; //New in v2
   double X_LUMINOSITY;
   float fabs_dtdz, ZSTEP;
   const float dz = 0.01;
@@ -455,16 +455,45 @@ int main(int argc, char ** argv){
 	goto CLEANUP;
       }
       // now read in all halos above our threshold into the smoothed halo field
-      fscanf(F, "%e %f %f %f", &mass, &xf, &yf, &zf);
-      while (!feof(F) && (mass>=M_MIN)){
-	x = xf*HII_DIM;
-	y = yf*HII_DIM;
-	z = zf*HII_DIM;
-	*((float *)M_coll_unfiltered + HII_R_FFT_INDEX(x, y, z)) += mass;
-	fscanf(F, "%e %f %f %f", &mass, &xf, &yf, &zf);
-      }
-      fclose(F);
-	  F = NULL;
+      if(HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) {
+          fscanf(F, "%e %f %f %f", &mass, &xf, &yf, &zf);
+          while (!feof(F) && (mass>=M_MIN)){
+            x = xf*HII_DIM;
+            y = yf*HII_DIM;
+            z = zf*HII_DIM;
+
+            if (ALPHA_STAR > 0. && mass > Mlim_Fstar)
+                Fstar = 1./F_STAR10;
+            else if (ALPHA_STAR < 0. && mass < Mlim_Fstar)
+                Fstar = 1/F_STAR10;
+            else 
+                Fstar = pow(mass/1e10,ALPHA_STAR); 
+     
+            if (ALPHA_ESC > 0. && mass > Mlim_Fesc)
+                Fesc = 1./F_ESC10;
+            else if (ALPHA_ESC < 0. && mass < Mlim_Fesc)
+                Fesc = 1/F_ESC10;
+            else  
+                Fesc = pow(mass/1e10,ALPHA_ESC);
+
+            *((float *)M_coll_unfiltered + HII_R_FFT_INDEX(x, y, z)) += mass * Fstar * Fesc * exp(-M_TURN/mass);
+            fscanf(F, "%e %f %f %f", &mass, &xf, &yf, &zf);
+          }    
+          fclose(F);
+          F = NULL;
+      }    
+      else {
+          fscanf(F, "%e %f %f %f", &mass, &xf, &yf, &zf);
+          while (!feof(F) && (mass>=M_MIN)){
+            x = xf*HII_DIM;
+            y = yf*HII_DIM;
+            z = zf*HII_DIM;
+            *((float *)M_coll_unfiltered + HII_R_FFT_INDEX(x, y, z)) += mass;
+            fscanf(F, "%e %f %f %f", &mass, &xf, &yf, &zf);
+          }    
+          fclose(F);
+          F = NULL;
+      }    
     } // end of the USE_HALO_FIELD option
 
     
@@ -724,12 +753,13 @@ int main(int argc, char ** argv){
       for (x=0; x<HII_DIM; x++){
 	for (y=0; y<HII_DIM; y++){
 	  for (z=0; z<HII_DIM; z++){
+	    density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
 	    if (USE_HALO_FIELD){
 	      Splined_Fcoll = *((float *)M_coll_filtered + HII_R_FFT_INDEX(x,y,z)) / (massofscaleR*density_over_mean);
 	      Splined_Fcoll *= (4/3.0)*PI*pow(R,3) / pixel_volume;
+          if (Splined_Fcoll > 1.) Splined_Fcoll = 1.;
 	    }	    
 	    else{
-	      density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));	    
 	      if ( (density_over_mean - 1) < Deltac){ // we are not resolving collapsed structures
 		if (HALO_MASS_DEPENDENT_IONIZING_EFFICIENCY) { // New in v2
 		  // Here again, 'Splined_Fcoll' and 'f_coll' are not the collpased fraction, but leave this name as is to simplify the variable name.
@@ -755,7 +785,7 @@ int main(int argc, char ** argv){
       } //  end loop through Fcoll box
 
       f_coll /= (double) HII_TOT_NUM_PIXELS; // ave PS fcoll for this filter scale
-      ST_over_PS = mean_f_coll_st/f_coll; // normalization ratio used to adjust the PS conditional collapsed fraction
+      if (!USE_HALO_FIELD) ST_over_PS = mean_f_coll_st/f_coll; // normalization ratio used to adjust the PS conditional collapsed fraction
       fprintf(LOG, "end f_coll normalization if, clock=%06.2f\n", (double)clock()/CLOCKS_PER_SEC);
       fflush(LOG);
 
@@ -780,7 +810,8 @@ int main(int argc, char ** argv){
 
 	    density_over_mean = 1.0 + *((float *)deltax_filtered + HII_R_FFT_INDEX(x,y,z));
 
-	    f_coll = ST_over_PS * Fcoll[HII_R_FFT_INDEX(x,y,z)];
+	    if (!USE_HALO_FIELD) f_coll = ST_over_PS * Fcoll[HII_R_FFT_INDEX(x,y,z)];
+        else f_coll = Fcoll[HII_R_FFT_INDEX(x,y,z)];
 	  
 	    // if this is the last filter step, prepare to account for poisson fluctuations in the sub grid halo number...
 	    // this is very approximate as it doesn't sample the halo mass function but merely samples a number of halos of a characterisic mass

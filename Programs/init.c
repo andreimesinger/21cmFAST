@@ -634,7 +634,6 @@ int main(int argc, char ** argv){
     	        *((float *)box + R_FFT_INDEX((unsigned long long)(i),(unsigned long long)(j),(unsigned long long)(k)) ) -= ( *((float *)(phi_1[PHI_INDEX(l, m)]) + R_FFT_INDEX((unsigned long long)(i),(unsigned long long) (j),(unsigned long long)(k) ) )  ) * (  *((float *)(phi_1[PHI_INDEX(l, m)]) + R_FFT_INDEX((unsigned long long)(i),(unsigned long long)(j),(unsigned long long)(k) ))  );
     	        //box[R_FFT_INDEX(i,j,k)] -= phi_1[PHI_INDEX(l, m)][R_FFT_INDEX(i,j,k)] *  phi_1[PHI_INDEX(l, m)][R_FFT_INDEX(i,j,k)];
               //fprintf(stderr, "%.2e ", *((float *)box + R_FFT_INDEX((unsigned long long)(i),(unsigned long long)(j),(unsigned long long)(k)) ) ); 
-    	        *((float *)box + R_FFT_INDEX((unsigned long long)(i),(unsigned long long)(j),(unsigned long long)(k)) ) /= TOT_NUM_PIXELS;
 
 //	        smoothed_box[HII_R_INDEX(i,j,k)] = 
 //	          *((float *)box + R_FFT_INDEX((unsigned long long)(i*f_pixel_factor+0.5),
@@ -643,6 +642,7 @@ int main(int argc, char ** argv){
             }
           }
           //fprintf(stderr, "\n");
+    	  *((float *)box + R_FFT_INDEX((unsigned long long)(i),(unsigned long long)(j),(unsigned long long)(k)) ) /= TOT_NUM_PIXELS;
         }
       }
     }
